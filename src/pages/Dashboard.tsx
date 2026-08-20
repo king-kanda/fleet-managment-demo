@@ -4,6 +4,7 @@ import { FleetMap } from '@/components/FleetMap'
 import { Icon } from '@/components/Icon'
 import { timeAgo, etaText } from '@/lib/format'
 import { markAlertsRead } from '@/lib/actions'
+import { ENV_MAPBOX_TOKEN } from '@/lib/env'
 import type { View } from '@/components/Sidebar'
 
 export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
@@ -48,7 +49,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
               <button className="link" onClick={() => onNavigate('map')}>Open full map →</button>
             </div>
             <div style={{ padding: '12px 14px 14px' }}>
-              <FleetMap vehicles={state.vehicles} token={state.settings.mapboxToken} height={380} selectedId={selected} onSelect={setSelected} />
+              <FleetMap vehicles={state.vehicles} token={state.settings.mapboxToken || ENV_MAPBOX_TOKEN} height={380} selectedId={selected} onSelect={setSelected} />
             </div>
           </div>
 

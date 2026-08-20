@@ -9,12 +9,16 @@ fleet moving in real time.
 
 ## Features
 
+- **Login screen** — a demo sign-in (no real auth; any email works, credentials pre-filled). Session persists across refreshes; sign out from the user menu.
 - **Live fleet dashboard** — active vehicles, trips in progress, fuel levels, and open alerts at a glance.
 - **Real-time map** — vehicles move along routes with animated markers, status colours, and per-vehicle detail. Renders on a built-in demo map by default; drop in a **Mapbox** token for real street/satellite tiles.
+- **Fleet management** — full CRUD for vehicles: add, edit (name, plate, type, fuel, assigned driver), and delete, with confirmation.
+- **Driver management** — full CRUD for the driver roster: add, edit (name, WhatsApp number, rating), delete, and one-click messaging.
 - **WhatsApp dispatch** — a WhatsApp-style two-way inbox for every driver, with delivery/read ticks and an **auto-reply bot** that answers driver keywords (`STATUS`, `ETA`, `FUEL`, `ARRIVED`, `MENU`).
 - **Trip management** — create trips, **dispatch** them to a vehicle (the driver is auto-notified over WhatsApp), and track progress/ETA to completion.
-- **Drivers** — roster with status, ratings, and one-click messaging.
 - **Live simulation** — vehicles drive their routes, fuel drains, ETAs update, and drivers send messages and trigger alerts. Pause/resume any time.
+
+Built with accessible [Radix UI](https://www.radix-ui.com/) primitives (dialogs, dropdown menus, selects, switches, tooltips, toasts) on a hand-written design system.
 
 ## Getting started
 
@@ -39,10 +43,14 @@ Because this is a **demo running fully in demo mode**, there is no server:
 
 ### Mapbox integration
 
-Optional. Get a free token at [account.mapbox.com](https://account.mapbox.com),
-then paste it into **Settings → Mapbox Integration**. The token is stored locally
-and the map upgrades to live Mapbox tiles. Mapbox GL is code-split, so it is only
-downloaded when a token is set.
+Optional. Two ways to enable live tiles:
+
+- **Settings → Mapbox Integration** — paste a token; it's stored in `localStorage`.
+- **Build-time** — copy `.env.example` to `.env` and set `VITE_MAPBOX_TOKEN`.
+
+Get a free token at [account.mapbox.com](https://account.mapbox.com). Mapbox GL is
+code-split, so it's only downloaded when a token is present; otherwise the built-in
+SVG map is used.
 
 ### WhatsApp integration
 
@@ -58,18 +66,22 @@ webhook would connect. To go live you would:
 ## Tech stack
 
 - **React 18** + **TypeScript** + **Vite**
-- No UI framework — a small hand-written CSS design system (`src/index.css`)
+- **Radix UI** primitives, styled with a hand-written design system (`src/index.css`)
 - **mapbox-gl** (optional, lazy-loaded)
 
 ## Project structure
 
 ```
 src/
-  components/    FleetMap, Sidebar, Icon
-  pages/         Dashboard, MapView, Trips, Drivers, WhatsApp, Settings
-  lib/           types, store, actions, simulation, geo, whatsapp, format
-  hooks/         useStore
-  data/          seed (Nairobi-based demo fleet)
+  components/     FleetMap, Sidebar, Icon
+    ui/           Radix wrappers: Dialog, ConfirmDialog, Select, Switch,
+                  RowMenu, Tooltip, Toast
+  pages/          Login, Dashboard, MapView, Fleet, Trips, Drivers,
+                  WhatsApp, Settings
+  lib/            types, store, actions, simulation, geo, whatsapp,
+                  auth, env, format
+  hooks/          useStore
+  data/           seed (Nairobi-based demo fleet)
 ```
 
 > This is a demonstration app. It uses seeded, fictional data around Nairobi, Kenya.

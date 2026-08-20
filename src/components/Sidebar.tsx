@@ -1,8 +1,11 @@
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Icon } from './Icon'
 import { useStore } from '@/hooks/useStore'
 import { toggleSimulation } from '@/lib/actions'
+import { signOut, useAuth } from '@/lib/auth'
+import { initials } from '@/lib/format'
 
-export type View = 'dashboard' | 'map' | 'trips' | 'drivers' | 'whatsapp' | 'settings'
+export type View = 'dashboard' | 'map' | 'fleet' | 'trips' | 'drivers' | 'whatsapp' | 'settings'
 
 const NAV: Array<{ section: string; items: Array<{ id: View; label: string; icon: string }> }> = [
   {
@@ -11,6 +14,12 @@ const NAV: Array<{ section: string; items: Array<{ id: View; label: string; icon
       { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
       { id: 'map', label: 'Live Map', icon: 'map' },
       { id: 'trips', label: 'Trips', icon: 'route' },
+    ],
+  },
+  {
+    section: 'Management',
+    items: [
+      { id: 'fleet', label: 'Fleet', icon: 'truck' },
       { id: 'drivers', label: 'Drivers', icon: 'users' },
     ],
   },
@@ -70,7 +79,40 @@ export function Sidebar({ view, setView }: { view: View; setView: (v: View) => v
           {running ? 'Pause' : 'Resume'}
         </button>
       </div>
+
+      <UserMenu />
     </aside>
+  )
+}
+
+function UserMenu() {
+  const user = useAuth()
+  if (!user) return null
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button className="user-chip">
+          <div className="avatar" style={{ background: 'linear-gradient(140deg,#6366f1,#4f46e5)' }}>{initials(user.name)}</div>
+          <div style={{ minWidth: 0, textAlign: 'left' }}>
+            <div className="user-name">{user.name}</div>
+            <div className="user-role">{user.role}</div>
+          </div>
+          <Icon name="chevron-down" size={15} style={{ color: 'var(--text-faint)', marginLeft: 'auto' }} />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className="menu-content" align="start" side="top" sideOffset={6} style={{ width: 208 }}>
+          <div className="menu-user">
+            <div className="user-name">{user.name}</div>
+            <div className="user-role">{user.email}</div>
+          </div>
+          <DropdownMenu.Separator className="menu-separator" />
+          <DropdownMenu.Item className="menu-item destructive" onSelect={() => signOut()}>
+            <Icon name="logout" size={15} /> Sign out
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   )
 }
 

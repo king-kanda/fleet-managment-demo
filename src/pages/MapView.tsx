@@ -3,6 +3,7 @@ import { useStore } from '@/hooks/useStore'
 import { FleetMap } from '@/components/FleetMap'
 import { Icon } from '@/components/Icon'
 import { sendMessage } from '@/lib/actions'
+import { ENV_MAPBOX_TOKEN } from '@/lib/env'
 import { initials } from '@/lib/format'
 
 export function MapView() {
@@ -22,7 +23,7 @@ export function MapView() {
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: '1fr 320px', alignItems: 'start' }}>
-        <FleetMap vehicles={state.vehicles} token={state.settings.mapboxToken} height={560} selectedId={selected} onSelect={setSelected} />
+        <FleetMap vehicles={state.vehicles} token={state.settings.mapboxToken || ENV_MAPBOX_TOKEN} height={560} selectedId={selected} onSelect={setSelected} />
 
         <div className="card" style={{ maxHeight: 560, overflowY: 'auto' }}>
           {vehicle ? (

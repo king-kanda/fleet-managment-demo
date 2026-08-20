@@ -1,8 +1,114 @@
 import { store } from './store'
-import type { Alert, AppState, Trip, WhatsAppMessage } from './types'
+import type { Alert, AppState, Driver, Trip, Vehicle, WhatsAppMessage } from './types'
 import { buildRoute, routeLengthKm } from './geo'
+import { MAP_CENTER } from '@/data/seed'
 
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+
+// ---------------------------------------------------------------------------
+// Fleet (vehicle) management
+// ---------------------------------------------------------------------------
+
+export type VehicleInput = Pick<Vehicle, 'name' | 'plate' | 'type' | 'fuelPct'> & { driverId: string | null }
+
+export function addVehicle(input: VehicleInput) {
+  const vehicle: Vehicle = {
+    id: uid('veh'),
+    name: input.name,
+    plate: input.plate,
+    type: input.type,
+    driverId: input.driverId,
+    status: 'idle',
+    position: [MAP_CENTER[0] + (Math.random() - 0.5) * 0.03, MAP_CENTER[1] + (Math.random() - 0.5) * 0.03],
+    heading: 0,
+    speedKph: 0,
+    fuelPct: input.fuelPct,
+    odometerKm: 0,
+    route: [],
+    routeProgress: 0,
+    activeTripId: null,
+  }
+  store.update((s) => {
+    const drivers = input.driverId
+      ? s.drivers.map((d) => (d.id === input.driverId ? { ...d, vehicleId: vehicle.id } : d))
+      : s.drivers
+    return { ...s, vehicles: [...s.vehicles, vehicle], drivers }
+  })
+  return vehicle
+}
+
+export function updateVehicle(id: string, input: VehicleInput) {
+  store.update((s) => {
+    const prev = s.vehicles.find((v) => v.id === id)
+    const vehicles = s.vehicles.map((v) => (v.id === id ? { ...v, ...input } : v))
+    // Reassign driver links if the driver changed.
+    let drivers = s.drivers
+    if (prev && prev.driverId !== input.driverId) {
+      drivers = s.drivers.map((d) => {
+        if (d.id === prev.driverId) return { ...d, vehicleId: null }
+        if (d.id === input.driverId) return { ...d, vehicleId: id }
+        return d
+      })
+    }
+    return { ...s, vehicles, drivers }
+  })
+}
+
+export function deleteVehicle(id: string) {
+  store.update((s) => {
+    const vehicle = s.vehicles.find((v) => v.id === id)
+    return {
+      ...s,
+      vehicles: s.vehicles.filter((v) => v.id !== id),
+      drivers: s.drivers.map((d) => (d.vehicleId === id ? { ...d, vehicleId: null, status: 'off_duty' as const } : d)),
+      trips: s.trips.map((t) =>
+        t.vehicleId === id && (t.status === 'in_progress' || t.status === 'assigned')
+          ? { ...t, status: 'cancelled' as const, vehicleId: null, driverId: null }
+          : t,
+      ),
+      alerts: vehicle
+        ? [{ id: uid('alert'), level: 'info' as const, title: 'Vehicle removed', detail: `${vehicle.name} was removed from the fleet.`, vehicleId: null, createdAt: Date.now(), read: false }, ...s.alerts]
+        : s.alerts,
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Driver management
+// ---------------------------------------------------------------------------
+
+const DRIVER_COLORS = ['#4f46e5', '#0f9d63', '#c77700', '#7c5cf0', '#d64545', '#0891b2', '#db2777', '#ca8a04']
+
+export type DriverInput = Pick<Driver, 'name' | 'phone' | 'rating'>
+
+export function addDriver(input: DriverInput) {
+  const driver: Driver = {
+    id: uid('drv'),
+    name: input.name,
+    phone: input.phone,
+    avatarColor: DRIVER_COLORS[Math.floor(Math.random() * DRIVER_COLORS.length)],
+    status: 'available',
+    vehicleId: null,
+    rating: input.rating,
+  }
+  store.update((s) => ({ ...s, drivers: [...s.drivers, driver] }))
+  return driver
+}
+
+export function updateDriver(id: string, input: DriverInput) {
+  store.update((s) => ({
+    ...s,
+    drivers: s.drivers.map((d) => (d.id === id ? { ...d, ...input } : d)),
+  }))
+}
+
+export function deleteDriver(id: string) {
+  store.update((s) => ({
+    ...s,
+    drivers: s.drivers.filter((d) => d.id !== id),
+    vehicles: s.vehicles.map((v) => (v.driverId === id ? { ...v, driverId: null } : v)),
+  }))
+}
 
 export function pushAlert(alert: Omit<Alert, 'id' | 'createdAt' | 'read'>) {
   store.update((s) => ({

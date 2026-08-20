@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { Icon } from '@/components/Icon'
+import { Switch } from '@/components/ui/Switch'
 import { receiveMessage, sendMessage, toggleAutoReply } from '@/lib/actions'
 import { clockTime, initials } from '@/lib/format'
 import type { WhatsAppMessage } from '@/lib/types'
@@ -46,11 +47,7 @@ export function WhatsApp() {
           <div className="sub">Two-way messaging with drivers · powered by WhatsApp Business Cloud API</div>
         </div>
         <div className="topbar-actions">
-          <label className="switch">
-            <input type="checkbox" checked={state.settings.autoReply} onChange={toggleAutoReply} />
-            <span className="track" />
-            Auto-reply bot
-          </label>
+          <Switch checked={state.settings.autoReply} onCheckedChange={toggleAutoReply} label="Auto-reply bot" id="autoreply" />
         </div>
       </div>
 

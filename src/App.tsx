@@ -28,7 +28,7 @@ export function App() {
     <ToastProvider>
       <div className="app">
         <Sidebar view={view} setView={setView} />
-        <main className="main">
+        <main className={`main ${view === 'map' ? 'map-flush' : ''}`}>
           {view === 'dashboard' && <Dashboard onNavigate={setView} />}
           {view === 'map' && <MapView />}
           {view === 'fleet' && <Fleet />}

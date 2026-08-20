@@ -4,13 +4,24 @@ import { toggleSimulation } from '@/lib/actions'
 
 export type View = 'dashboard' | 'map' | 'trips' | 'drivers' | 'whatsapp' | 'settings'
 
-const NAV: Array<{ id: View; label: string; icon: string }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'map', label: 'Live Map', icon: 'map' },
-  { id: 'trips', label: 'Trips', icon: 'route' },
-  { id: 'drivers', label: 'Drivers', icon: 'users' },
-  { id: 'whatsapp', label: 'WhatsApp', icon: 'chat' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
+const NAV: Array<{ section: string; items: Array<{ id: View; label: string; icon: string }> }> = [
+  {
+    section: 'Operations',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+      { id: 'map', label: 'Live Map', icon: 'map' },
+      { id: 'trips', label: 'Trips', icon: 'route' },
+      { id: 'drivers', label: 'Drivers', icon: 'users' },
+    ],
+  },
+  {
+    section: 'Communication',
+    items: [{ id: 'whatsapp', label: 'WhatsApp', icon: 'chat' }],
+  },
+  {
+    section: 'Workspace',
+    items: [{ id: 'settings', label: 'Settings', icon: 'settings' }],
+  },
 ]
 
 export function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
@@ -30,16 +41,21 @@ export function Sidebar({ view, setView }: { view: View; setView: (v: View) => v
         </div>
       </div>
 
-      {NAV.map((item) => (
-        <button
-          key={item.id}
-          className={`nav-item ${view === item.id ? 'active' : ''}`}
-          onClick={() => setView(item.id)}
-        >
-          <Icon name={item.icon} size={18} />
-          {item.label}
-          {item.id === 'whatsapp' && unreadMsgs > 0 && <span className="badge">{unreadMsgs}</span>}
-        </button>
+      {NAV.map((group) => (
+        <div key={group.section}>
+          <div className="nav-label">{group.section}</div>
+          {group.items.map((item) => (
+            <button
+              key={item.id}
+              className={`nav-item ${view === item.id ? 'active' : ''}`}
+              onClick={() => setView(item.id)}
+            >
+              <Icon name={item.icon} size={18} />
+              {item.label}
+              {item.id === 'whatsapp' && unreadMsgs > 0 && <span className="badge">{unreadMsgs}</span>}
+            </button>
+          ))}
+        </div>
       ))}
 
       <div className="sim-toggle">

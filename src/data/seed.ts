@@ -128,6 +128,24 @@ export function buildSeedState(): AppState {
     vehicles.push(vehicle)
   })
 
+  // Edge case: a trip with an unusually long route label to stress-test truncation.
+  trips.push({
+    id: 'trip-pending-long',
+    reference: 'TR-1049',
+    origin: 'JKIA Airport Freight Terminal 2',
+    destination: 'Nakuru Regional Distribution Centre',
+    originCoord: PLACES['JKIA Airport'],
+    destinationCoord: PLACES.Westlands,
+    vehicleId: null,
+    driverId: null,
+    status: 'pending',
+    cargo: 'Refrigerated pharmaceutical consignment',
+    distanceKm: 162.4,
+    createdAt: Date.now() - 240_000,
+    eta: null,
+    progress: 0,
+  })
+
   // A couple of pending trips waiting for dispatch.
   for (let i = 0; i < 2; i++) {
     const originName = randomPlace()
@@ -157,6 +175,15 @@ export function buildSeedState(): AppState {
     alerts: [
       {
         id: 'alert-seed-1',
+        level: 'critical',
+        title: 'Harsh braking detected',
+        detail: 'Truck 02 — sudden deceleration on Waiyaki Way. Driver notified.',
+        vehicleId: 'veh-2',
+        createdAt: Date.now() - 180_000,
+        read: false,
+      },
+      {
+        id: 'alert-seed-2',
         level: 'warning',
         title: 'Low fuel',
         detail: 'Van 02 fuel level below 30%.',
@@ -165,13 +192,31 @@ export function buildSeedState(): AppState {
         read: false,
       },
       {
-        id: 'alert-seed-2',
+        id: 'alert-seed-3',
+        level: 'warning',
+        title: 'Geofence exit',
+        detail: 'Bike 01 left the Kasarani delivery zone.',
+        vehicleId: 'veh-7',
+        createdAt: Date.now() - 1_020_000,
+        read: false,
+      },
+      {
+        id: 'alert-seed-4',
         level: 'info',
         title: 'Trip started',
         detail: 'Truck 01 departed for its destination.',
         vehicleId: 'veh-1',
         createdAt: Date.now() - 1_200_000,
-        read: false,
+        read: true,
+      },
+      {
+        id: 'alert-seed-5',
+        level: 'info',
+        title: 'Maintenance due',
+        detail: 'Bike 01 is due for a 10,000 km service in 3 days.',
+        vehicleId: 'veh-7',
+        createdAt: Date.now() - 5_400_000,
+        read: true,
       },
     ],
     messages: [

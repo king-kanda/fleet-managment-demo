@@ -1,7 +1,7 @@
 import type { AppState } from './types'
 import { buildSeedState } from '@/data/seed'
 
-const STORAGE_KEY = 'fleetpulse.state.v1'
+const STORAGE_KEY = 'fleetpulse.state.v2'
 
 type Listener = () => void
 

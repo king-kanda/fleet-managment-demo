@@ -1,7 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Icon } from './Icon'
 import { useStore } from '@/hooks/useStore'
-import { toggleSimulation } from '@/lib/actions'
 import { signOut, useAuth } from '@/lib/auth'
 import { initials } from '@/lib/format'
 
@@ -36,10 +35,9 @@ const NAV: Array<{ section: string; items: Array<{ id: View; label: string; icon
 export function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
   const state = useStore()
   const unreadMsgs = countUnread(state)
-  const running = state.settings.simulationRunning
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" data-tour="nav">
       <div className="brand">
         <div className="logo">
           <Icon name="truck" size={19} style={{ color: '#fff' }} />
@@ -56,6 +54,7 @@ export function Sidebar({ view, setView }: { view: View; setView: (v: View) => v
           {group.items.map((item) => (
             <button
               key={item.id}
+              data-tour={item.id === 'whatsapp' ? 'whatsapp' : undefined}
               className={`nav-item ${view === item.id ? 'active' : ''}`}
               onClick={() => setView(item.id)}
             >
@@ -67,19 +66,7 @@ export function Sidebar({ view, setView }: { view: View; setView: (v: View) => v
         </div>
       ))}
 
-      <div className="sim-toggle">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span className={`live-badge ${running ? '' : 'paused'}`}>
-            <i />
-            {running ? 'Live simulation' : 'Paused'}
-          </span>
-        </div>
-        <button className="btn sm" style={{ width: '100%', justifyContent: 'center' }} onClick={toggleSimulation}>
-          <Icon name={running ? 'pause' : 'play'} size={14} />
-          {running ? 'Pause' : 'Resume'}
-        </button>
-      </div>
-
+      <div className="nav-spacer" />
       <UserMenu />
     </aside>
   )
@@ -91,7 +78,7 @@ function UserMenu() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="user-chip">
+        <button className="user-chip" data-tour="account">
           <div className="avatar" style={{ background: 'linear-gradient(140deg,#6366f1,#4f46e5)' }}>{initials(user.name)}</div>
           <div style={{ minWidth: 0, textAlign: 'left' }}>
             <div className="user-name">{user.name}</div>
@@ -107,6 +94,9 @@ function UserMenu() {
             <div className="user-role">{user.email}</div>
           </div>
           <DropdownMenu.Separator className="menu-separator" />
+          <DropdownMenu.Item className="menu-item" onSelect={() => (window as unknown as { __startTour?: () => void }).__startTour?.()}>
+            <Icon name="sparkles" size={15} /> Product tour
+          </DropdownMenu.Item>
           <DropdownMenu.Item className="menu-item destructive" onSelect={() => signOut()}>
             <Icon name="logout" size={15} /> Sign out
           </DropdownMenu.Item>

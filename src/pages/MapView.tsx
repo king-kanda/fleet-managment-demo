@@ -35,7 +35,7 @@ export function MapView() {
               <div className="meta" style={{ marginBottom: 14 }}>{vehicle.plate} · {vehicle.type}</div>
 
               <DetailRow icon="gauge" label="Speed" value={`${Math.round(vehicle.speedKph)} km/h`} />
-              <DetailRow icon="fuel" label="Fuel" value={`${Math.round(vehicle.fuelPct)}%`} />
+              <DetailRow icon="fuel" label="Fuel" value={vehicle.hasFuelSensor ? `${Math.round(vehicle.fuelPct)}%` : 'Not configured'} />
               <DetailRow icon="route" label="Odometer" value={`${vehicle.odometerKm.toLocaleString()} km`} />
               <DetailRow icon="map" label="Position" value={`${vehicle.position[1].toFixed(4)}, ${vehicle.position[0].toFixed(4)}`} />
 

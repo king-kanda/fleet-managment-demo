@@ -3,6 +3,7 @@ import { useStore } from '@/hooks/useStore'
 import { Icon } from '@/components/Icon'
 import { Dialog } from '@/components/ui/Dialog'
 import { Select } from '@/components/ui/Select'
+import { Switch } from '@/components/ui/Switch'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { useToast } from '@/components/ui/Toast'
@@ -63,10 +64,14 @@ export function Fleet() {
                   <td style={{ textTransform: 'capitalize' }}>{v.type}</td>
                   <td>{driver?.name ?? <span className="tag">unassigned</span>}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className="bar fuel-bar" style={{ width: 60 }}><span className={low ? 'low' : ''} style={{ width: `${v.fuelPct}%` }} /></div>
-                      <span className="meta" style={{ minWidth: 30 }}>{Math.round(v.fuelPct)}%</span>
-                    </div>
+                    {v.hasFuelSensor ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="bar fuel-bar" style={{ width: 60 }}><span className={low ? 'low' : ''} style={{ width: `${v.fuelPct}%` }} /></div>
+                        <span className="meta" style={{ minWidth: 30 }}>{Math.round(v.fuelPct)}%</span>
+                      </div>
+                    ) : (
+                      <span className="not-configured">Device not configured</span>
+                    )}
                   </td>
                   <td>{v.odometerKm.toLocaleString()} km</td>
                   <td><span className={`pill ${v.status}`}>{v.status}</span></td>
@@ -116,6 +121,7 @@ function VehicleDialog({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null;
   const [plate, setPlate] = useState(vehicle?.plate ?? '')
   const [type, setType] = useState<Vehicle['type']>(vehicle?.type ?? 'truck')
   const [fuelPct, setFuelPct] = useState(vehicle?.fuelPct ?? 100)
+  const [hasFuelSensor, setHasFuelSensor] = useState(vehicle?.hasFuelSensor ?? false)
   const [driverId, setDriverId] = useState<string>(vehicle?.driverId ?? '')
 
   // Drivers available to assign: unassigned, or already this vehicle's driver.
@@ -130,7 +136,7 @@ function VehicleDialog({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null;
 
   const save = () => {
     if (!valid) return
-    const input: VehicleInput = { name: name.trim(), plate: plate.trim().toUpperCase(), type, fuelPct: Number(fuelPct), driverId: driverId || null }
+    const input: VehicleInput = { name: name.trim(), plate: plate.trim().toUpperCase(), type, hasFuelSensor, fuelPct: Number(fuelPct), driverId: driverId || null }
     if (vehicle) updateVehicle(vehicle.id, input)
     else addVehicle(input)
     onSaved(input.name, !vehicle)
@@ -164,15 +170,26 @@ function VehicleDialog({ vehicle, onClose, onSaved }: { vehicle: Vehicle | null;
           <Select value={type} onValueChange={(v) => setType(v as Vehicle['type'])} options={TYPE_OPTIONS} />
         </div>
       </div>
-      <div className="form-row">
-        <div className="field">
-          <label>Fuel level ({Math.round(Number(fuelPct))}%)</label>
-          <input type="range" min={0} max={100} value={fuelPct} onChange={(e) => setFuelPct(Number(e.target.value))} />
+      <div className="field">
+        <label>Assigned driver</label>
+        <Select value={driverId} onValueChange={setDriverId} options={driverOptions} placeholder="No driver" />
+      </div>
+      <div className="field">
+        <div className="setting-toggle" style={{ padding: 0 }}>
+          <div>
+            <div className="setting-title">Fuel sensor installed</div>
+            <div className="meta">Enable live fuel telemetry for this vehicle</div>
+          </div>
+          <Switch checked={hasFuelSensor} onCheckedChange={setHasFuelSensor} />
         </div>
-        <div className="field">
-          <label>Assigned driver</label>
-          <Select value={driverId} onValueChange={setDriverId} options={driverOptions} placeholder="No driver" />
-        </div>
+        {hasFuelSensor && (
+          <div style={{ marginTop: 12 }}>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 550, color: 'var(--text-dim)', marginBottom: 4 }}>
+              Current fuel level ({Math.round(Number(fuelPct))}%)
+            </label>
+            <input type="range" min={0} max={100} value={fuelPct} onChange={(e) => setFuelPct(Number(e.target.value))} />
+          </div>
+        )}
       </div>
     </Dialog>
   )

@@ -16,95 +16,135 @@ const PLACES: Record<string, LngLat> = {
   'Ngong Road': [36.7676, -1.3009],
   Gigiri: [36.8155, -1.2318],
   Embakasi: [36.8944, -1.3089],
+  Kilimani: [36.7869, -1.2905],
+  Lavington: [36.7690, -1.2790],
+  Parklands: [36.8180, -1.2620],
+  Donholm: [36.8880, -1.2960],
+  Langata: [36.7550, -1.3400],
 }
 
 const placeNames = Object.keys(PLACES)
-
+const rnd = () => Math.random()
+const pick = <T,>(arr: T[]): T => arr[Math.floor(rnd() * arr.length)]
 function randomPlace(exclude?: string): string {
-  let p = placeNames[Math.floor(Math.random() * placeNames.length)]
-  while (p === exclude) p = placeNames[Math.floor(Math.random() * placeNames.length)]
+  let p = pick(placeNames)
+  while (p === exclude) p = pick(placeNames)
   return p
 }
 
-const DRIVER_COLORS = ['#0ea5e9', '#f97316', '#22c55e', '#a855f7', '#ef4444', '#14b8a6', '#eab308', '#ec4899']
+const DRIVER_COLORS = ['#4f46e5', '#0f9d63', '#c77700', '#7c5cf0', '#d64545', '#0891b2', '#db2777', '#ca8a04', '#2563eb', '#059669']
 
-const DRIVER_NAMES = [
-  'James Mwangi',
-  'Aisha Otieno',
-  'Peter Kamau',
-  'Grace Wanjiru',
-  'David Kiprop',
-  'Fatuma Hassan',
-  'Samuel Njoroge',
-  'Lucy Achieng',
+const FIRST_NAMES = [
+  'James', 'Aisha', 'Peter', 'Grace', 'David', 'Fatuma', 'Samuel', 'Lucy', 'John', 'Mary',
+  'Brian', 'Faith', 'Kevin', 'Joyce', 'Dennis', 'Mercy', 'Paul', 'Esther', 'Michael', 'Ann',
+  'Daniel', 'Susan', 'George', 'Caroline', 'Anthony', 'Jane', 'Charles', 'Rose', 'Stephen', 'Nancy',
+  'Victor', 'Beatrice', 'Collins', 'Winnie', 'Felix', 'Sharon', 'Edwin', 'Purity', 'Ali', 'Halima',
+]
+const LAST_NAMES = [
+  'Mwangi', 'Otieno', 'Kamau', 'Wanjiru', 'Kiprop', 'Hassan', 'Njoroge', 'Achieng', 'Ochieng', 'Wafula',
+  'Mutua', 'Chebet', 'Omondi', 'Njeri', 'Kimani', 'Adhiambo', 'Barasa', 'Cheruiyot', 'Maina', 'Owino',
+  'Muthoni', 'Kariuki', 'Auma', 'Rotich', 'Gitau', 'Nyambura', 'Onyango', 'Wambui', 'Kirui', 'Abdi',
 ]
 
-function makeDrivers(): Driver[] {
-  return DRIVER_NAMES.map((name, i) => ({
-    id: `drv-${i + 1}`,
-    name,
-    phone: `+2547${(10000000 + i * 111111).toString().slice(0, 8)}`,
-    avatarColor: DRIVER_COLORS[i % DRIVER_COLORS.length],
-    status: 'available',
-    vehicleId: null,
-    rating: Math.round((4 + Math.random()) * 10) / 10,
-  }))
-}
+const FLEET_SIZE = 100
+const MOVING_COUNT = 32 // vehicles actively on trips
 
-const VEHICLE_DEFS: Array<{ name: string; plate: string; type: Vehicle['type'] }> = [
-  { name: 'Truck 01', plate: 'KDA 128X', type: 'truck' },
-  { name: 'Truck 02', plate: 'KDB 774Y', type: 'truck' },
-  { name: 'Van 01', plate: 'KCX 411A', type: 'van' },
-  { name: 'Van 02', plate: 'KCZ 902B', type: 'van' },
-  { name: 'Car 01', plate: 'KDG 335C', type: 'car' },
-  { name: 'Car 02', plate: 'KDH 118D', type: 'car' },
-  { name: 'Bike 01', plate: 'KMEA 55E', type: 'bike' },
-  { name: 'Bike 02', plate: 'KMFB 90F', type: 'bike' },
+type VType = Vehicle['type']
+const TYPE_PLAN: Array<{ type: VType; prefix: string; count: number }> = [
+  { type: 'truck', prefix: 'Truck', count: 40 },
+  { type: 'van', prefix: 'Van', count: 30 },
+  { type: 'car', prefix: 'Car', count: 20 },
+  { type: 'bike', prefix: 'Bike', count: 10 },
 ]
 
-function jitter(coord: LngLat, amount = 0.01): LngLat {
-  return [coord[0] + (Math.random() - 0.5) * amount, coord[1] + (Math.random() - 0.5) * amount]
+function plate(type: VType, n: number): string {
+  const L = () => String.fromCharCode(65 + Math.floor(rnd() * 26))
+  const d = () => Math.floor(rnd() * 10)
+  if (type === 'bike') return `KM${L()}${L()} ${d()}${d()}${String.fromCharCode(65 + (n % 26))}`
+  return `K${L()}${L()} ${d()}${d()}${d()}${String.fromCharCode(65 + (n % 26))}`
 }
+
+function jitter(coord: LngLat, amount = 0.02): LngLat {
+  return [coord[0] + (rnd() - 0.5) * amount, coord[1] + (rnd() - 0.5) * amount]
+}
+
+function makeDrivers(n: number): Driver[] {
+  const used = new Set<string>()
+  const drivers: Driver[] = []
+  for (let i = 0; i < n; i++) {
+    let name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`
+    let guard = 0
+    while (used.has(name) && guard++ < 20) name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`
+    used.add(name)
+    drivers.push({
+      id: `drv-${i + 1}`,
+      name,
+      phone: `+2547${String(10000000 + Math.floor(rnd() * 89999999)).slice(0, 8)}`,
+      avatarColor: DRIVER_COLORS[i % DRIVER_COLORS.length],
+      status: 'off_duty',
+      vehicleId: null,
+      rating: Math.round((3.8 + rnd() * 1.2) * 10) / 10,
+    })
+  }
+  return drivers
+}
+
+const CARGO = ['Electronics', 'Fresh produce', 'Parcels', 'Building materials', 'Medical supplies', 'Retail stock', 'Furniture', 'Beverages', 'Textiles', 'Auto parts']
 
 export function buildSeedState(): AppState {
-  const drivers = makeDrivers()
+  const drivers = makeDrivers(FLEET_SIZE)
   const vehicles: Vehicle[] = []
   const trips: Trip[] = []
 
-  VEHICLE_DEFS.forEach((def, i) => {
+  // Flatten the type plan into a naming sequence.
+  const defs: Array<{ type: VType; name: string }> = []
+  TYPE_PLAN.forEach(({ type, prefix, count }) => {
+    for (let i = 1; i <= count; i++) defs.push({ type, name: `${prefix} ${String(i).padStart(2, '0')}` })
+  })
+
+  defs.forEach((def, i) => {
     const driver = drivers[i]
+    const moving = i < MOVING_COUNT
+    // Remaining split across idle / maintenance / offline.
+    let status: Vehicle['status']
+    if (moving) status = 'moving'
+    else {
+      const r = (i - MOVING_COUNT) % 10
+      status = r < 6 ? 'idle' : r < 8 ? 'offline' : 'maintenance'
+    }
+
     const originName = randomPlace()
     const destName = randomPlace(originName)
     const origin = PLACES[originName]
     const dest = PLACES[destName]
-    const route = buildRoute(origin, dest)
+    const route = moving ? buildRoute(origin, dest) : []
+    const progress = moving ? rnd() * 0.7 : 0
 
-    // First 5 vehicles are actively on trips, the rest idle/offline.
-    const active = i < 5
-    const status: Vehicle['status'] = active ? 'moving' : i === 5 ? 'idle' : i === 6 ? 'maintenance' : 'offline'
-    const progress = active ? Math.random() * 0.6 : 0
+    // Only one vehicle in the whole fleet has a fuel-telemetry device installed.
+    const hasFuelSensor = i === 0
 
     const vehicle: Vehicle = {
       id: `veh-${i + 1}`,
       name: def.name,
-      plate: def.plate,
+      plate: plate(def.type, i),
       type: def.type,
       driverId: driver.id,
       status,
-      position: active ? origin : jitter(PLACES.CBD, 0.03),
-      heading: Math.random() * 360,
-      speedKph: active ? 30 + Math.random() * 40 : 0,
-      fuelPct: Math.round(25 + Math.random() * 70),
-      odometerKm: Math.round(40000 + Math.random() * 120000),
-      route: active ? route : [],
+      position: moving ? origin : jitter(pick(placeNames.map((p) => PLACES[p])), 0.015),
+      heading: rnd() * 360,
+      speedKph: moving ? 25 + rnd() * 45 : 0,
+      hasFuelSensor,
+      fuelPct: hasFuelSensor ? Math.round(30 + rnd() * 55) : 0,
+      odometerKm: Math.round(20000 + rnd() * 180000),
+      route,
       routeProgress: progress,
       activeTripId: null,
     }
 
     driver.vehicleId = vehicle.id
-    driver.status = active ? 'on_trip' : 'off_duty'
+    driver.status = moving ? 'on_trip' : 'off_duty'
 
-    if (active) {
+    if (moving) {
       const trip: Trip = {
         id: `trip-${i + 1}`,
         reference: `TR-${1040 + i}`,
@@ -115,9 +155,9 @@ export function buildSeedState(): AppState {
         vehicleId: vehicle.id,
         driverId: driver.id,
         status: 'in_progress',
-        cargo: ['Electronics', 'Fresh produce', 'Parcels', 'Building materials', 'Medical supplies'][i % 5],
+        cargo: pick(CARGO),
         distanceKm: Math.round(routeLengthKm(route) * 10) / 10,
-        createdAt: Date.now() - Math.floor(Math.random() * 3600_000),
+        createdAt: Date.now() - Math.floor(rnd() * 3600_000),
         eta: Date.now() + Math.floor((1 - progress) * 45 * 60_000),
         progress,
       }
@@ -131,7 +171,7 @@ export function buildSeedState(): AppState {
   // Edge case: a trip with an unusually long route label to stress-test truncation.
   trips.push({
     id: 'trip-pending-long',
-    reference: 'TR-1049',
+    reference: 'TR-2049',
     origin: 'JKIA Airport Freight Terminal 2',
     destination: 'Nakuru Regional Distribution Centre',
     originCoord: PLACES['JKIA Airport'],
@@ -146,13 +186,13 @@ export function buildSeedState(): AppState {
     progress: 0,
   })
 
-  // A couple of pending trips waiting for dispatch.
-  for (let i = 0; i < 2; i++) {
+  // A handful of pending trips waiting for dispatch.
+  for (let i = 0; i < 5; i++) {
     const originName = randomPlace()
     const destName = randomPlace(originName)
     trips.push({
       id: `trip-pending-${i + 1}`,
-      reference: `TR-${1050 + i}`,
+      reference: `TR-${2050 + i}`,
       origin: originName,
       destination: destName,
       originCoord: PLACES[originName],
@@ -160,9 +200,9 @@ export function buildSeedState(): AppState {
       vehicleId: null,
       driverId: null,
       status: 'pending',
-      cargo: ['Furniture', 'Retail stock'][i],
+      cargo: pick(CARGO),
       distanceKm: Math.round(routeLengthKm(buildRoute(PLACES[originName], PLACES[destName])) * 10) / 10,
-      createdAt: Date.now() - Math.floor(Math.random() * 1800_000),
+      createdAt: Date.now() - Math.floor(rnd() * 1800_000),
       eta: null,
       progress: 0,
     })
@@ -173,69 +213,15 @@ export function buildSeedState(): AppState {
     drivers,
     trips,
     alerts: [
-      {
-        id: 'alert-seed-1',
-        level: 'critical',
-        title: 'Harsh braking detected',
-        detail: 'Truck 02 — sudden deceleration on Waiyaki Way. Driver notified.',
-        vehicleId: 'veh-2',
-        createdAt: Date.now() - 180_000,
-        read: false,
-      },
-      {
-        id: 'alert-seed-2',
-        level: 'warning',
-        title: 'Low fuel',
-        detail: 'Van 02 fuel level below 30%.',
-        vehicleId: 'veh-4',
-        createdAt: Date.now() - 600_000,
-        read: false,
-      },
-      {
-        id: 'alert-seed-3',
-        level: 'warning',
-        title: 'Geofence exit',
-        detail: 'Bike 01 left the Kasarani delivery zone.',
-        vehicleId: 'veh-7',
-        createdAt: Date.now() - 1_020_000,
-        read: false,
-      },
-      {
-        id: 'alert-seed-4',
-        level: 'info',
-        title: 'Trip started',
-        detail: 'Truck 01 departed for its destination.',
-        vehicleId: 'veh-1',
-        createdAt: Date.now() - 1_200_000,
-        read: true,
-      },
-      {
-        id: 'alert-seed-5',
-        level: 'info',
-        title: 'Maintenance due',
-        detail: 'Bike 01 is due for a 10,000 km service in 3 days.',
-        vehicleId: 'veh-7',
-        createdAt: Date.now() - 5_400_000,
-        read: true,
-      },
+      { id: 'alert-seed-1', level: 'critical', title: 'Harsh braking detected', detail: 'Truck 02 — sudden deceleration on Waiyaki Way. Driver notified.', vehicleId: 'veh-2', createdAt: Date.now() - 180_000, read: false },
+      { id: 'alert-seed-2', level: 'warning', title: 'Geofence exit', detail: 'Van 03 left the Industrial Area delivery zone.', vehicleId: 'veh-43', createdAt: Date.now() - 600_000, read: false },
+      { id: 'alert-seed-3', level: 'warning', title: 'Idle over 20 min', detail: 'Truck 15 has been stationary near CBD for 24 minutes.', vehicleId: 'veh-15', createdAt: Date.now() - 900_000, read: false },
+      { id: 'alert-seed-4', level: 'info', title: 'Trip started', detail: 'Truck 01 departed for its destination.', vehicleId: 'veh-1', createdAt: Date.now() - 1_200_000, read: true },
+      { id: 'alert-seed-5', level: 'info', title: 'Maintenance due', detail: 'Bike 09 is due for a 10,000 km service in 3 days.', vehicleId: 'veh-99', createdAt: Date.now() - 5_400_000, read: true },
     ],
     messages: [
-      {
-        id: 'msg-seed-1',
-        driverId: 'drv-1',
-        direction: 'inbound',
-        body: 'Heavy traffic on Mombasa Road, running about 10 min late.',
-        createdAt: Date.now() - 900_000,
-        status: 'read',
-      },
-      {
-        id: 'msg-seed-2',
-        driverId: 'drv-1',
-        direction: 'outbound',
-        body: 'Noted, thanks for the update. Drive safe.',
-        createdAt: Date.now() - 850_000,
-        status: 'read',
-      },
+      { id: 'msg-seed-1', driverId: 'drv-1', direction: 'inbound', body: 'Heavy traffic on Mombasa Road, running about 10 min late.', createdAt: Date.now() - 900_000, status: 'read' },
+      { id: 'msg-seed-2', driverId: 'drv-1', direction: 'outbound', body: 'Noted, thanks for the update. Drive safe.', createdAt: Date.now() - 850_000, status: 'read' },
     ],
     settings: {
       mapboxToken: '',

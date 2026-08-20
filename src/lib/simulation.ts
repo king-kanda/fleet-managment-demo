@@ -1,6 +1,6 @@
 import { store } from './store'
 import { completeTrip, pushAlert, receiveMessage } from './actions'
-import { pointAlongRoute } from './geo'
+import { pointAlongRoute, routeLengthKm } from './geo'
 import type { AppState } from './types'
 
 // Canned inbound driver messages the simulator occasionally fires so the
@@ -33,12 +33,14 @@ function tick() {
     const vehicles = prev.vehicles.map((v) => {
       if (v.status !== 'moving' || v.route.length < 2) return v
 
-      // Speed → fraction of route per tick. Routes are ~10-25km; scale so a
-      // trip takes a couple of minutes of wall-clock for a lively demo.
-      const step = (v.speedKph / 3600) * (TICK_MS / 1000) * 0.9
-      let progress = v.routeProgress + step / Math.max(1, routeSpanFactor(v.route.length))
+      // Real-time movement: advance by the actual distance covered this tick at
+      // the vehicle's real speed, so a "30 min" ETA is a real 30 minutes.
+      const routeLen = Math.max(0.1, routeLengthKm(v.route))
+      const distanceStepKm = (v.speedKph / 3600) * (TICK_MS / 1000)
+      let progress = v.routeProgress + distanceStepKm / routeLen
       const jitteredSpeed = Math.max(8, Math.min(90, v.speedKph + (Math.random() - 0.5) * 6))
-      const fuelPct = Math.max(0, v.fuelPct - 0.05 - Math.random() * 0.05)
+      // Fuel only changes on vehicles that actually have a telemetry device.
+      const fuelPct = v.hasFuelSensor ? Math.max(0, v.fuelPct - 0.002 - Math.random() * 0.002) : v.fuelPct
 
       if (progress >= 1) {
         progress = 1
@@ -53,20 +55,23 @@ function tick() {
         routeProgress: progress,
         speedKph: progress >= 1 ? 0 : jitteredSpeed,
         fuelPct: Math.round(fuelPct * 10) / 10,
-        odometerKm: Math.round((v.odometerKm + step * 0.2) * 10) / 10,
+        odometerKm: Math.round((v.odometerKm + distanceStepKm) * 10) / 10,
       }
     })
 
-    // Sync trip progress + ETA from their vehicles.
+    // Sync trip progress + ETA from their vehicles, in real minutes.
     const trips = prev.trips.map((t) => {
       if (t.status !== 'in_progress') return t
       const v = vehicles.find((veh) => veh.id === t.vehicleId)
       if (!v) return t
-      const remaining = 1 - v.routeProgress
+      const routeLen = Math.max(0.1, routeLengthKm(v.route))
+      const remainingKm = (1 - v.routeProgress) * routeLen
+      const speed = Math.max(8, v.speedKph)
+      const etaMs = (remainingKm / speed) * 3600 * 1000
       return {
         ...t,
         progress: v.routeProgress,
-        eta: Date.now() + Math.round(remaining * 30 * 60_000),
+        eta: Date.now() + Math.round(etaMs),
       }
     })
 
@@ -79,17 +84,12 @@ function tick() {
   maybeFireEvents(store.getState())
 }
 
-// Longer routes (more waypoints) should take proportionally longer.
-function routeSpanFactor(waypointCount: number): number {
-  return Math.max(0.15, waypointCount * 0.04)
-}
-
 let lowFuelWarned = new Set<string>()
 
 function maybeFireEvents(s: AppState) {
-  // Low-fuel alerts, once per vehicle until refuel.
+  // Low-fuel alerts, once per vehicle until refuel — only where a sensor exists.
   s.vehicles.forEach((v) => {
-    if (v.fuelPct < 20 && !lowFuelWarned.has(v.id)) {
+    if (v.hasFuelSensor && v.fuelPct < 20 && !lowFuelWarned.has(v.id)) {
       lowFuelWarned.add(v.id)
       pushAlert({ level: 'warning', title: 'Low fuel', detail: `${v.name} fuel at ${Math.round(v.fuelPct)}%.`, vehicleId: v.id })
     }

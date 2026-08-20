@@ -15,6 +15,9 @@ export interface Vehicle {
   position: LngLat
   heading: number // degrees, 0 = north
   speedKph: number
+  // Fuel telemetry requires a hardware sensor most of the fleet doesn't have.
+  // When hasFuelSensor is false the UI shows "Device not configured".
+  hasFuelSensor: boolean
   fuelPct: number
   odometerKm: number
   // Route the vehicle is currently following (list of waypoints in lng/lat).

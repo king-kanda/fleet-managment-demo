@@ -6,6 +6,7 @@ interface Props {
   vehicles: Vehicle[]
   token: string
   height?: number
+  fill?: boolean // stretch to fill the parent (full-screen map)
   selectedId?: string | null
   onSelect?: (id: string) => void
 }
@@ -31,7 +32,7 @@ export function FleetMap(props: Props) {
 // MapLibre GL map. Uses CARTO (free) by default, or Mapbox styles when a token
 // is supplied. Renders live vehicle markers + active route lines.
 // ---------------------------------------------------------------------------
-function GLMap({ vehicles, token, height = 460, selectedId, onSelect, onFail }: Props & { onFail: () => void }) {
+function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFail }: Props & { onFail: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null)
@@ -137,11 +138,19 @@ function GLMap({ vehicles, token, height = 460, selectedId, onSelect, onFail }: 
     }
   })
 
+  // Fly to a vehicle when it becomes the selection (e.g. clicked in a list).
+  useEffect(() => {
+    if (!loadedRef.current || !selectedId) return
+    const v = vehicles.find((x) => x.id === selectedId)
+    if (v) mapRef.current?.flyTo({ center: v.position, zoom: 13.5, duration: 700 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+
   return (
-    <div className="map-wrap">
-      <div ref={containerRef} className="map-canvas" style={{ height }} />
+    <div className={`map-wrap ${fill ? 'map-fill' : ''}`}>
+      <div ref={containerRef} className="map-canvas" style={fill ? { height: '100%' } : { height }} />
       <Legend />
-      {!token && <div className="map-token-note">Live map · add a Mapbox token in Settings for satellite/streets</div>}
+      {!token && <div className="map-token-note">Live map · add a Mapbox token for satellite/streets</div>}
     </div>
   )
 }
@@ -159,7 +168,7 @@ function routeGeoJSON(vehicles: Vehicle[]): any {
 // ---------------------------------------------------------------------------
 // SVG fallback — only used if the map library/tiles cannot load (offline).
 // ---------------------------------------------------------------------------
-function SvgMap({ vehicles, height = 460, selectedId, onSelect }: Props) {
+function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect }: Props) {
   const bounds = useMemo(() => ({ minLng: 36.68, maxLng: 36.96, minLat: -1.36, maxLat: -1.2 }), [])
   const W = 1000
   const H = 560
@@ -176,8 +185,8 @@ function SvgMap({ vehicles, height = 460, selectedId, onSelect }: Props) {
   }, [])
 
   return (
-    <div className="map-wrap">
-      <svg viewBox={`0 0 ${W} ${H}`} className="map-canvas" style={{ height, background: '#eef1f5' }}>
+    <div className={`map-wrap ${fill ? 'map-fill' : ''}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="map-canvas" style={{ height: fill ? '100%' : height, background: '#eef1f5' }}>
         <rect width={W} height={H} fill="#e7ebf1" />
         {roads.map((d, i) => (
           <path key={i} d={d} stroke="#dfe3ea" strokeWidth={i % 3 === 0 ? 5 : 2} fill="none" strokeLinecap="round" />

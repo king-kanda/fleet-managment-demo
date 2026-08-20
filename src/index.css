@@ -1344,3 +1344,71 @@ input[type='range']::-moz-range-thumb {
 .tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); transition: background 0.15s, width 0.15s; }
 .tour-dot.active { background: var(--brand); width: 18px; border-radius: 999px; }
 .tour-btns { display: flex; gap: 8px; }
+
+/* ==========================================================================
+   Full-screen Live Map with floating panels + responsive chart tweaks
+   ========================================================================== */
+
+/* Let the map view fill the whole content area */
+.main.map-flush { padding: 0; overflow: hidden; }
+.mapview { position: relative; height: 100%; width: 100%; overflow: hidden; }
+.map-wrap.map-fill { height: 100%; border: 0; border-radius: 0; }
+.map-wrap.map-fill .map-canvas { height: 100% !important; }
+.map-wrap.map-fill .maplibregl-map { height: 100% !important; }
+
+/* Floating glass panels */
+.map-float {
+  position: absolute; z-index: 5;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 30px rgba(20, 24, 34, 0.14);
+  border-radius: 14px;
+}
+
+.map-header { top: 18px; left: 18px; padding: 11px 14px; display: flex; align-items: center; gap: 16px; }
+.map-header-title { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
+.map-header-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+.map-header .icon-btn { margin-left: auto; }
+
+.map-list { top: 82px; left: 18px; width: 288px; max-height: calc(100% - 104px); display: flex; flex-direction: column; overflow: hidden; }
+.map-search { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--border); color: var(--text-faint); }
+.map-search input { border: 0; background: transparent; outline: none; font-size: 13.5px; color: var(--text); width: 100%; }
+.map-list-scroll { overflow-y: auto; padding: 6px; }
+.map-list-row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 10px; border: 0; background: transparent; text-align: left; border-radius: 8px;
+}
+.map-list-row:hover { background: rgba(255, 255, 255, 0.7); }
+.map-list-row.active { background: var(--brand-tint); }
+.map-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.map-list-name { font-size: 13px; font-weight: 550; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-list-meta { font-size: 12px; color: var(--text-faint); flex-shrink: 0; }
+.map-list-speed { font-size: 12.5px; font-weight: 650; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.map-list-speed i { font-style: normal; color: var(--text-faint); font-weight: 400; font-size: 10px; margin-left: 2px; }
+
+.map-detail { top: 18px; right: 18px; width: 306px; padding: 16px; }
+.map-detail-close { position: absolute; top: 10px; right: 10px; }
+.map-detail-head { display: flex; gap: 11px; align-items: center; margin-bottom: 14px; padding-right: 26px; }
+.map-detail-name { font-weight: 640; font-size: 15.5px; letter-spacing: -0.01em; }
+.map-detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.map-stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+.map-stat-label { font-size: 11px; color: var(--text-faint); }
+.map-stat-value { font-size: 17px; font-weight: 660; margin-top: 3px; letter-spacing: -0.02em; }
+.map-stat-value span { font-size: 11px; color: var(--text-faint); font-weight: 500; margin-left: 2px; }
+.map-detail-trip { border-top: 1px solid var(--border); padding-top: 13px; margin-bottom: 13px; }
+.map-detail-driver { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--border); padding-top: 13px; }
+
+@media (max-width: 640px) {
+  .map-header { left: 12px; right: 12px; top: 12px; }
+  .map-list { left: 12px; right: 12px; width: auto; top: auto; bottom: 84px; max-height: 42%; }
+  .map-detail { left: 12px; right: 12px; width: auto; top: auto; bottom: 84px; }
+}
+
+/* Chart responsiveness */
+.analytics-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .analytics-grid { grid-template-columns: 1fr; } }
+.status-block { flex-wrap: wrap; }
+.donut-legend { min-width: 170px; }
+.chart svg { width: 100%; height: auto; }

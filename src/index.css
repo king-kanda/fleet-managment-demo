@@ -1260,3 +1260,87 @@ input[type='range']::-moz-range-thumb {
   .topbar { flex-direction: column; align-items: stretch; }
   .topbar h2 { font-size: 19px; }
 }
+
+/* ==========================================================================
+   Batch: map markers, switch contrast, fuel state, overflow, onboarding
+   ========================================================================== */
+
+/* Sidebar spacer replacing the removed sim box */
+.nav-spacer { flex: 1; }
+
+/* MapLibre vehicle markers */
+.veh-marker {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(20, 24, 34, 0.4);
+  cursor: pointer; transition: transform 0.2s;
+}
+.veh-marker.selected { transform: scale(1.55); border-color: #4f46e5; z-index: 3; }
+.veh-marker.moving::after {
+  content: ''; position: absolute; inset: -5px; border-radius: 50%;
+  border: 2px solid currentColor; opacity: 0; color: inherit;
+  animation: marker-pulse 2s ease-out infinite;
+}
+@keyframes marker-pulse {
+  0% { transform: scale(0.6); opacity: 0.5; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.maplibregl-ctrl-group { border-radius: 8px !important; box-shadow: var(--shadow-sm) !important; }
+
+/* Switch — higher contrast so it never reads as a broken radio */
+.rx-switch { width: 40px; height: 23px; background: #c4cad4; }
+.rx-switch:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--brand-tint); }
+.rx-switch[data-state='checked'] { background: var(--green); }
+.rx-switch-thumb { width: 17px; height: 17px; transform: translateX(3px); }
+.rx-switch-thumb[data-state='checked'] { transform: translateX(20px); }
+
+/* Fuel: device not configured */
+.not-configured {
+  font-size: 12px; color: var(--text-faint); font-style: italic;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.not-configured::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border-strong);
+}
+
+/* Overflow guards: grid children must be allowed to shrink */
+.dashboard-grid > *, .analytics-grid > *, .kpis > * { min-width: 0; }
+.card { min-width: 0; }
+
+/* ---------- Welcome dialog ---------- */
+.welcome-card { width: min(500px, 94vw); text-align: left; }
+.welcome-badge {
+  width: 48px; height: 48px; border-radius: 13px; margin-bottom: 16px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(140deg, #6366f1, #4f46e5);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+}
+.welcome-title { font-size: 20px; font-weight: 660; letter-spacing: -0.02em; margin: 0 0 10px; }
+.welcome-desc { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin: 0 0 18px; }
+.welcome-points { display: grid; gap: 11px; margin-bottom: 22px; }
+.welcome-point { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: var(--text-dim); line-height: 1.5; }
+.welcome-point svg { color: var(--green); flex-shrink: 0; margin-top: 2px; }
+.welcome-point b { color: var(--text); font-weight: 600; }
+.welcome-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ---------- Product tour ---------- */
+.tour-layer { position: fixed; inset: 0; z-index: 80; }
+.tour-spot {
+  position: fixed; border-radius: 12px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(17, 20, 28, 0.58);
+  outline: 2px solid rgba(255, 255, 255, 0.9); outline-offset: 2px;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tour-tip {
+  position: fixed; z-index: 81; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow-lg); padding: 18px; animation: pop 0.16s ease;
+}
+.tour-step-count { font-size: 11px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--brand); }
+.tour-title { font-size: 16px; font-weight: 640; letter-spacing: -0.02em; margin: 6px 0 6px; }
+.tour-body { font-size: 13.5px; color: var(--text-dim); line-height: 1.55; }
+.tour-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; gap: 12px; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); transition: background 0.15s, width 0.15s; }
+.tour-dot.active { background: var(--brand); width: 18px; border-radius: 999px; }
+.tour-btns { display: flex; gap: 8px; }

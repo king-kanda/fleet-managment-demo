@@ -9,6 +9,7 @@ import { WhatsApp } from './pages/WhatsApp'
 import { Settings } from './pages/Settings'
 import { Login } from './pages/Login'
 import { ToastProvider } from './components/ui/Toast'
+import { Onboarding } from './components/Onboarding'
 import { useAuth } from './lib/auth'
 
 export function App() {
@@ -36,6 +37,7 @@ export function App() {
           {view === 'whatsapp' && <WhatsApp />}
           {view === 'settings' && <Settings />}
         </main>
+        <Onboarding />
       </div>
     </ToastProvider>
   )

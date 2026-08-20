@@ -72,7 +72,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
       </div>
 
       {/* KPI row */}
-      <div className="grid kpis">
+      <div className="grid kpis" data-tour="kpis">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
           : analytics.kpis.map((k) => <KpiTile key={k.key} kpi={k} />)}
@@ -125,7 +125,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (v: View) => void }) {
 
       {/* Map + rail */}
       <div className="grid dashboard-grid" style={{ marginTop: 18 }}>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }} data-tour="map">
           <div className="card-head" style={{ padding: '16px 18px 0' }}>
             <div>
               <h3>Live fleet map</h3>

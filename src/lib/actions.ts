@@ -9,7 +9,7 @@ const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.ran
 // Fleet (vehicle) management
 // ---------------------------------------------------------------------------
 
-export type VehicleInput = Pick<Vehicle, 'name' | 'plate' | 'type' | 'fuelPct'> & { driverId: string | null }
+export type VehicleInput = Pick<Vehicle, 'name' | 'plate' | 'type' | 'fuelPct' | 'hasFuelSensor'> & { driverId: string | null }
 
 export function addVehicle(input: VehicleInput) {
   const vehicle: Vehicle = {
@@ -22,7 +22,8 @@ export function addVehicle(input: VehicleInput) {
     position: [MAP_CENTER[0] + (Math.random() - 0.5) * 0.03, MAP_CENTER[1] + (Math.random() - 0.5) * 0.03],
     heading: 0,
     speedKph: 0,
-    fuelPct: input.fuelPct,
+    hasFuelSensor: input.hasFuelSensor,
+    fuelPct: input.hasFuelSensor ? input.fuelPct : 0,
     odometerKm: 0,
     route: [],
     routeProgress: 0,

@@ -39,18 +39,39 @@ Because this is a **demo running fully in demo mode**, there is no server:
 
 - **State** lives in `localStorage` (`fleetpulse.state.v1`) via a tiny observable store (`src/lib/store.ts`). Reset it any time from **Settings → Reset demo data**.
 - **Simulation** (`src/lib/simulation.ts`) ticks once per second, advancing vehicle positions along their routes, updating trips, and injecting driver chatter and alerts.
-- **Map** (`src/components/FleetMap.tsx`) uses a hand-drawn SVG projection by default and lazy-loads Mapbox GL only when a token is present.
+- **Map** (`src/components/FleetMap.tsx`) renders a real basemap and steps down one rung at a time if something is unavailable: Mapbox streets (valid token) → MapLibre + free OpenStreetMap raster tiles → the schematic SVG preview (only if the map libraries themselves fail to load). Whenever it steps down, the reason is shown in the map's corner badge and logged to the console.
 
 ### Mapbox integration
 
-Optional. Two ways to enable live tiles:
+Optional — without a token the map still renders real streets via OpenStreetMap.
+Two ways to enable Mapbox tiles:
 
 - **Settings → Mapbox Integration** — paste a token; it's stored in `localStorage`.
 - **Build-time** — copy `.env.example` to `.env` and set `VITE_MAPBOX_TOKEN`.
 
 Get a free token at [account.mapbox.com](https://account.mapbox.com). Mapbox GL is
-code-split, so it's only downloaded when a token is present; otherwise the built-in
-SVG map is used.
+code-split, so it's only downloaded when a token is present.
+
+**Deploying with a token (Vercel).** `VITE_MAPBOX_TOKEN` is inlined by Vite at
+**build** time, not read at request time, so:
+
+1. Add it under **Project Settings → Environment Variables**, enabled for the
+   **Production** environment (not only Preview/Development).
+2. **Redeploy** — an existing deployment keeps the value it was built with. A
+   redeploy served from build cache will not pick up a changed variable either.
+3. Paste the raw token, with no surrounding quotes. It must be a **public**
+   token (`pk.…`); a secret `sk.…` token cannot be used from a browser.
+4. If the token has **URL restrictions**, add the deployment's origin
+   (e.g. `https://your-app.vercel.app`) to the allowed list, or Mapbox answers
+   `403`.
+
+**Checking a live deployment.** Open **Settings → Mapbox Integration** and press
+**Test token**. It calls the Mapbox styles API from the browser with whatever
+token the app is actually using and reports the real status (`200`, `401`
+unauthorized, `403` URL-restricted, or blocked network). The same panel says
+whether the active token came from `VITE_MAPBOX_TOKEN` or from one saved in this
+browser — a token saved in Settings **overrides** the deployed one, which is a
+common reason a correct Vercel token appears to be ignored.
 
 ### WhatsApp integration
 

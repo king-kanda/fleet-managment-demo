@@ -1288,7 +1288,7 @@ input[type='range']::-moz-range-thumb {
   0% { transform: scale(0.7); opacity: 0.55; }
   100% { transform: scale(1.9); opacity: 0; }
 }
-.maplibregl-ctrl-group { border-radius: 8px !important; box-shadow: var(--shadow-sm) !important; }
+.maplibregl-ctrl-group, .mapboxgl-ctrl-group { border-radius: 8px !important; box-shadow: var(--shadow-sm) !important; }
 
 /* Switch — higher contrast so it never reads as a broken radio */
 .rx-switch { width: 40px; height: 23px; background: #c4cad4; }

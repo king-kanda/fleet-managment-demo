@@ -1,26 +1,37 @@
 import type { AppState, Driver, LngLat, Trip, Vehicle } from '@/lib/types'
 import { buildRoute, routeLengthKm } from '@/lib/geo'
 
-// Demo fleet operates around Nairobi, Kenya.
-export const MAP_CENTER: LngLat = [36.8219, -1.2921]
+// Demo fleet operates across several counties in south-central Kenya. The map
+// centre sits between Nairobi and Kiambu so the whole spread is visible.
+export const MAP_CENTER: LngLat = [36.95, -1.05]
+export const MAP_ZOOM = 8.2
 
-// A few recognisable landmarks used as trip endpoints.
+// Towns across Nairobi, Kiambu, Machakos, Kajiado, Murang'a and Nakuru counties,
+// used as trip endpoints and idle parking spots.
 const PLACES: Record<string, LngLat> = {
-  CBD: [36.8219, -1.2864],
+  // Nairobi County
+  'Nairobi CBD': [36.8219, -1.2864],
   Westlands: [36.8065, -1.2649],
-  'JKIA Airport': [36.9278, -1.3192],
-  Karen: [36.7073, -1.3197],
-  'Industrial Area': [36.8489, -1.3084],
-  Ruaraka: [36.8686, -1.2437],
-  Kasarani: [36.8969, -1.2216],
-  'Ngong Road': [36.7676, -1.3009],
-  Gigiri: [36.8155, -1.2318],
   Embakasi: [36.8944, -1.3089],
-  Kilimani: [36.7869, -1.2905],
-  Lavington: [36.7690, -1.2790],
-  Parklands: [36.8180, -1.2620],
-  Donholm: [36.8880, -1.2960],
-  Langata: [36.7550, -1.3400],
+  Karen: [36.7073, -1.3197],
+  'JKIA Airport': [36.9278, -1.3192],
+  // Kiambu County
+  Thika: [37.0693, -1.0333],
+  Ruiru: [36.9580, -1.1450],
+  'Kiambu Town': [36.8356, -1.1714],
+  Limuru: [36.6420, -1.1136],
+  Juja: [37.0110, -1.1030],
+  // Machakos County
+  'Machakos Town': [37.2634, -1.5177],
+  'Athi River': [36.9784, -1.4560],
+  // Kajiado County
+  Kitengela: [36.9575, -1.4778],
+  Ngong: [36.6560, -1.3606],
+  Kajiado: [36.7820, -1.8523],
+  // Murang'a County
+  "Murang'a": [37.1500, -0.7210],
+  // Nakuru County
+  Naivasha: [36.4310, -0.7167],
 }
 
 const placeNames = Object.keys(PLACES)

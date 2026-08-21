@@ -4,21 +4,37 @@ import { Icon } from '@/components/Icon'
 import { Switch } from '@/components/ui/Switch'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
-import { ENV_MAPBOX_TOKEN } from '@/lib/env'
+import { ENV_MAPBOX_TOKEN, normalizeMapboxToken, pingMapboxToken } from '@/lib/env'
 import { resetDemo, setMapboxToken, toggleAutoReply, toggleSimulation } from '@/lib/actions'
 
 export function Settings() {
   const state = useStore()
   const { toast } = useToast()
   const [token, setToken] = useState(state.settings.mapboxToken)
+  const [check, setCheck] = useState<{ ok: boolean; message: string } | null>(null)
+  const [checking, setChecking] = useState(false)
 
   const save = () => {
     setMapboxToken(token)
     toast({ title: token.trim() ? 'Mapbox token saved' : 'Mapbox token cleared', description: token.trim() ? 'Live tiles enabled' : 'Using the built-in demo map', variant: 'success' })
   }
 
-  const envActive = !state.settings.mapboxToken && !!ENV_MAPBOX_TOKEN
-  const liveTiles = !!(state.settings.mapboxToken || ENV_MAPBOX_TOKEN)
+  // The token the map is actually using right now: a token saved in this browser
+  // wins over the build-time one, which is a common reason a correct Vercel
+  // token appears to be ignored.
+  const savedToken = normalizeMapboxToken(state.settings.mapboxToken)
+  const activeToken = savedToken || ENV_MAPBOX_TOKEN
+  const envActive = !savedToken && !!ENV_MAPBOX_TOKEN
+  const liveTiles = !!activeToken
+
+  const test = async () => {
+    setChecking(true)
+    setCheck(null)
+    const raw = token.trim() || state.settings.mapboxToken.trim() || ENV_MAPBOX_TOKEN
+    const res = await pingMapboxToken(raw)
+    setCheck({ ok: res.ok, message: res.message })
+    setChecking(false)
+  }
 
   return (
     <>
@@ -44,14 +60,32 @@ export function Settings() {
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <button className="btn primary" onClick={save}><Icon name="check" size={14} /> Save token</button>
-            {state.settings.mapboxToken && <button className="btn ghost" onClick={() => { setToken(''); setMapboxToken('') }}>Clear</button>}
+            <button className="btn ghost" onClick={test} disabled={checking}>{checking ? 'Testing…' : 'Test token'}</button>
+            {state.settings.mapboxToken && <button className="btn ghost" onClick={() => { setToken(''); setMapboxToken(''); setCheck(null) }}>Clear</button>}
           </div>
+          {check && (
+            <div className="status-row" style={{ marginTop: 12, alignItems: 'flex-start', lineHeight: 1.5 }}>
+              <span className={`status-dot ${check.ok ? 'on' : ''}`} />
+              <span>{check.message}</span>
+            </div>
+          )}
           <div className="status-row" style={{ marginTop: 14 }}>
             <span className={`status-dot ${liveTiles ? 'on' : ''}`} />
             {liveTiles
-              ? <>Live Mapbox tiles active{envActive ? ' (from environment)' : ''}</>
-              : 'Using built-in demo map'}
+              ? <>Live Mapbox tiles active{envActive ? ' (from VITE_MAPBOX_TOKEN)' : ' (saved in this browser)'}</>
+              : 'Using the free OpenStreetMap basemap'}
           </div>
+          {savedToken && !!ENV_MAPBOX_TOKEN && (
+            <div className="meta" style={{ marginTop: 8, lineHeight: 1.5 }}>
+              A token saved in this browser is overriding <code>VITE_MAPBOX_TOKEN</code>. Clear it to use the deployed one.
+            </div>
+          )}
+          {!ENV_MAPBOX_TOKEN && (
+            <div className="meta" style={{ marginTop: 8, lineHeight: 1.5 }}>
+              No build-time token in this deployment. <code>VITE_MAPBOX_TOKEN</code> is inlined when the app is built —
+              set it for the Production environment in Vercel and redeploy.
+            </div>
+          )}
         </div>
 
         <div className="card">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Vehicle, LngLat } from '@/lib/types'
 import { MAP_CENTER, MAP_ZOOM } from '@/data/seed'
+import { normalizeMapboxToken } from '@/lib/env'
 import { markerSVG, VEHICLE_SHAPES } from './vehicleMarker'
 
 interface Props {
@@ -41,17 +42,46 @@ const OSM_RASTER_STYLE: any = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 }
 
+// Rendering modes, best first. We only ever step DOWN one rung at a time, and
+// only for a failure that rung cannot recover from:
+//   mapbox → Mapbox streets (needs a valid public token)
+//   free   → MapLibre + OpenStreetMap raster tiles (no token, still a real map)
+//   svg    → the schematic offline preview (no map library at all)
+type Mode = 'mapbox' | 'free' | 'svg'
+
 export function FleetMap(props: Props) {
-  const [failed, setFailed] = useState(false)
-  if (failed) return <SvgMap {...props} />
-  return <GLMap {...props} onFail={() => setFailed(true)} />
+  // Trim/validate first: a token with a stray newline or quotes from the Vercel
+  // dashboard is a 401 waiting to happen, and an sk./garbage token can never
+  // work in a browser — treat those as "no token" and use the free basemap.
+  const token = useMemo(() => normalizeMapboxToken(props.token), [props.token])
+  const [mode, setMode] = useState<Mode>(token ? 'mapbox' : 'free')
+  const [note, setNote] = useState('')
+
+  // A new token gets a fresh shot at the best rung.
+  useEffect(() => {
+    setMode(token ? 'mapbox' : 'free')
+    setNote('')
+  }, [token])
+
+  const downgrade = (to: Mode, reason: string) => {
+    // eslint-disable-next-line no-console
+    console.warn(`[FleetMap] falling back to "${to}" basemap: ${reason}`)
+    setNote(reason)
+    setMode(to)
+  }
+
+  if (mode === 'svg') return <SvgMap {...props} note={note} />
+  // Remount on mode change so the map is rebuilt with the new style/library.
+  return <GLMap {...props} key={mode} token={token} mode={mode} note={note} onDowngrade={downgrade} />
 }
 
 // ---------------------------------------------------------------------------
-// MapLibre GL map. Uses CARTO (free) by default, or Mapbox styles when a token
-// is supplied. Renders live vehicle markers + active route lines.
+// GL map. Mapbox streets when a valid token is supplied, otherwise MapLibre +
+// free OSM raster tiles. Renders live vehicle markers + active route lines.
 // ---------------------------------------------------------------------------
-function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFail }: Props & { onFail: () => void }) {
+function GLMap({
+  vehicles, token, height = 460, fill, selectedId, onSelect, mode, note, onDowngrade,
+}: Props & { mode: Mode; note: string; onDowngrade: (to: Mode, reason: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null)
@@ -65,13 +95,14 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
 
   useEffect(() => {
     let cancelled = false
+    const usingMapbox = mode === 'mapbox'
     ;(async () => {
       try {
         // With a token, use the official mapbox-gl (native mapbox:// support for
         // tiles, glyphs and sprites). Without one, use maplibre-gl + free OSM.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let gl: any
-        if (token) {
+        if (usingMapbox) {
           gl = (await import('mapbox-gl')).default
           await import('mapbox-gl/dist/mapbox-gl.css')
           gl.accessToken = token
@@ -83,7 +114,7 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
         if (cancelled || !containerRef.current) return
         glRef.current = gl
 
-        const style = token ? 'mapbox://styles/mapbox/streets-v12' : OSM_RASTER_STYLE
+        const style = usingMapbox ? 'mapbox://styles/mapbox/streets-v12' : OSM_RASTER_STYLE
 
         const map = new gl.Map({
           container: containerRef.current,
@@ -94,6 +125,25 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
         })
         mapRef.current = map
         map.addControl(new gl.NavigationControl({ showCompass: false }), 'top-right')
+
+        // A blank map is worse than a plain one: if Mapbox refuses the token or
+        // the style cannot be fetched, step down to the free OSM basemap instead
+        // of leaving the user staring at grey tiles.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        map.on('error', (e: any) => {
+          if (cancelled || !usingMapbox || loadedRef.current) return
+          const status: number | undefined = e?.error?.status
+          const msg: string = e?.error?.message ?? String(e?.error ?? 'unknown error')
+          const authFailure = status === 401 || status === 403 || /access token|unauthorized|forbidden/i.test(msg)
+          const styleFailure = /style|failed to fetch/i.test(msg)
+          if (!authFailure && !styleFailure) return
+          onDowngrade(
+            'free',
+            authFailure
+              ? `Mapbox rejected the access token (${status ?? 'auth error'}) — showing the free OpenStreetMap basemap. Check VITE_MAPBOX_TOKEN and any URL restriction on it.`
+              : `Could not load the Mapbox style (${msg}) — showing the free OpenStreetMap basemap.`,
+          )
+        })
 
         map.on('load', () => {
           loadedRef.current = true
@@ -113,10 +163,14 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
             map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 320, right: 340 }, maxZoom: 11, duration: 0 })
           }
         })
-        // A working map is never torn down for tile/style errors. The offline
-        // SVG is only reached if the map library itself fails to load (catch).
-      } catch {
-        onFail()
+        // A working map is never torn down for tile errors. The offline SVG is
+        // only reached if the map library itself fails to load or start (catch).
+      } catch (e) {
+        if (cancelled) return
+        const reason = `${usingMapbox ? 'mapbox-gl' : 'maplibre-gl'} failed to start: ${String(e)}`
+        // mapbox-gl failing to load (chunk error, WebGL refused) is no reason to
+        // give up on maps entirely — try the free renderer before the SVG.
+        onDowngrade(usingMapbox ? 'free' : 'svg', reason)
       }
     })()
     return () => {
@@ -127,7 +181,7 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
       loadedRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }, [token, mode])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const syncMarkers = () => {
@@ -171,7 +225,11 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
     <div className={`map-wrap ${fill ? 'map-fill' : ''}`}>
       <div ref={containerRef} className="map-canvas" style={fill ? { height: '100%' } : { height }} />
       <Legend />
-      {!token && <div className="map-token-note">Live map · add a Mapbox token for satellite/streets</div>}
+      {mode === 'free' && (
+        <div className="map-token-note" title={note || undefined}>
+          {note ? `OpenStreetMap basemap · ${note}` : 'Live map · add a Mapbox token for satellite/streets'}
+        </div>
+      )}
     </div>
   )
 }
@@ -189,7 +247,7 @@ function routeGeoJSON(vehicles: Vehicle[]): any {
 // ---------------------------------------------------------------------------
 // SVG fallback — only used if the map library/tiles cannot load (offline).
 // ---------------------------------------------------------------------------
-function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect }: Props) {
+function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect, note }: Props & { note?: string }) {
   const bounds = useMemo(() => ({ minLng: 36.35, maxLng: 37.35, minLat: -1.95, maxLat: -0.62 }), [])
   const W = 1000
   const H = 560
@@ -232,7 +290,7 @@ function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect }: Props) {
         })}
       </svg>
       <Legend />
-      <div className="map-token-note">Offline map preview</div>
+      <div className="map-token-note" title={note || undefined}>Offline map preview{note ? ` · ${note}` : ''}</div>
     </div>
   )
 }

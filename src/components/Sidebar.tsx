@@ -59,7 +59,7 @@ export function Sidebar({ view, setView }: { view: View; setView: (v: View) => v
               onClick={() => setView(item.id)}
             >
               <Icon name={item.icon} size={18} />
-              {item.label}
+              <span className="nav-text">{item.label}</span>
               {item.id === 'whatsapp' && unreadMsgs > 0 && <span className="badge">{unreadMsgs}</span>}
             </button>
           ))}

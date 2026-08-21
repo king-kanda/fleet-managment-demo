@@ -225,10 +225,9 @@ function GLMap({
     <div className={`map-wrap ${fill ? 'map-fill' : ''}`}>
       <div ref={containerRef} className="map-canvas" style={fill ? { height: '100%' } : { height }} />
       <Legend />
-      {mode === 'free' && (
-        <div className="map-token-note" title={note || undefined}>
-          {note ? `OpenStreetMap basemap · ${note}` : 'Live map · add a Mapbox token for satellite/streets'}
-        </div>
+      {/* Only ever shown to explain a downgrade — a working map carries no badge. */}
+      {mode === 'free' && note && (
+        <div className="map-token-note" title={note}>OpenStreetMap basemap · {note}</div>
       )}
     </div>
   )

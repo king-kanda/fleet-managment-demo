@@ -9,6 +9,34 @@
 // Preview) or the bundle ships an empty string.
 export const ENV_MAPBOX_TOKEN: string = normalizeMapboxToken(import.meta.env.VITE_MAPBOX_TOKEN)
 
+// ---------------------------------------------------------------------------
+// Grok (xAI) — powers the WhatsApp auto-reply with real conversational context.
+//
+// SECURITY: anything inlined here ships to the browser and is readable by every
+// visitor. That is acceptable for a demo key with a spend cap; for anything real
+// set VITE_GROK_PROXY_URL to your own backend (which holds the key server-side)
+// and leave VITE_GROK_API_KEY unset.
+// ---------------------------------------------------------------------------
+export const ENV_GROK_API_KEY: string = normalizeGrokKey(import.meta.env.VITE_GROK_API_KEY)
+
+/** Default model. Override per-deployment with VITE_GROK_MODEL. */
+export const GROK_MODEL: string = (import.meta.env.VITE_GROK_MODEL ?? '').trim() || 'grok-4.6'
+
+/**
+ * Where chat completions are sent. Defaults to xAI directly; point it at your
+ * own proxy (same OpenAI-compatible shape) to keep the key off the client.
+ */
+export const GROK_API_URL: string =
+  ((import.meta.env.VITE_GROK_PROXY_URL ?? '') as string).trim().replace(/\/$/, '') || 'https://api.x.ai/v1'
+
+/** True when replies can be generated without a key in the browser (proxy mode). */
+export const GROK_USES_PROXY: boolean = GROK_API_URL !== 'https://api.x.ai/v1'
+
+export function normalizeGrokKey(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  return raw.trim().replace(/^['"]|['"]$/g, '').trim()
+}
+
 export type TokenProblem = 'empty' | 'quoted' | 'secret' | 'malformed' | null
 
 /**

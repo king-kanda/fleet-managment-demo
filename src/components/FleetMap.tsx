@@ -68,37 +68,33 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
     let cancelled = false
     ;(async () => {
       try {
-        const mod = await import('maplibre-gl')
+        // With a token, use the official mapbox-gl (native mapbox:// support for
+        // tiles, glyphs and sprites). Without one, use maplibre-gl + free OSM.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const maplibregl: any = (mod as any).default ?? mod
-        await import('maplibre-gl/dist/maplibre-gl.css')
+        let gl: any
+        if (token) {
+          gl = (await import('mapbox-gl')).default
+          await import('mapbox-gl/dist/mapbox-gl.css')
+          gl.accessToken = token
+        } else {
+          const mod = await import('maplibre-gl')
+          gl = (mod as { default?: unknown }).default ?? mod
+          await import('maplibre-gl/dist/maplibre-gl.css')
+        }
         if (cancelled || !containerRef.current) return
-        glRef.current = maplibregl
+        glRef.current = gl
 
-        const style = token
-          ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12?access_token=${token}`
-          : OSM_RASTER_STYLE
+        const style = token ? 'mapbox://styles/mapbox/streets-v12' : OSM_RASTER_STYLE
 
-        const map = new maplibregl.Map({
+        const map = new gl.Map({
           container: containerRef.current,
           style,
           center: MAP_CENTER,
           zoom: MAP_ZOOM,
           attributionControl: false,
-          // Rewrite Mapbox protocol URLs so Mapbox styles work through MapLibre.
-          transformRequest: token
-            ? (url: string) => {
-                if (url.startsWith('mapbox://')) {
-                  const path = url.replace('mapbox://', '')
-                  if (path.startsWith('sprites/')) return { url: `https://api.mapbox.com/styles/v1/${path.replace('sprites/', '')}?access_token=${token}` }
-                  return { url: `https://api.mapbox.com/v4/${path}.json?secure&access_token=${token}` }
-                }
-                return { url }
-              }
-            : undefined,
         })
         mapRef.current = map
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+        map.addControl(new gl.NavigationControl({ showCompass: false }), 'top-right')
 
         // Only fall back to the offline SVG if the map never loads at all (e.g.
         // the tile host is unreachable). Individual tile errors are tolerated —
@@ -122,7 +118,7 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
           if (!fill) return
           const pts = vehicles.map((v) => v.position)
           if (pts.length > 1) {
-            const b = pts.reduce((acc, p) => acc.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]))
+            const b = pts.reduce((acc, p) => acc.extend(p), new gl.LngLatBounds(pts[0], pts[0]))
             map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 320, right: 340 }, maxZoom: 11, duration: 0 })
           }
         })

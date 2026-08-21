@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Vehicle, LngLat } from '@/lib/types'
-import { MAP_CENTER } from '@/data/seed'
+import { MAP_CENTER, MAP_ZOOM } from '@/data/seed'
+import { markerSVG, VEHICLE_SHAPES } from './vehicleMarker'
 
 interface Props {
   vehicles: Vehicle[]
@@ -18,9 +19,26 @@ const STATUS_COLOR: Record<Vehicle['status'], string> = {
   maintenance: '#7c5cf0',
 }
 
-// Free, no-token vector basemap (CARTO Positron) — a real interactive map that
-// works out of the box. A Mapbox token upgrades to Mapbox styles.
-const CARTO_POSITRON = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+// Free, no-token RASTER basemap (CARTO Voyager) — real streets and town labels.
+// Raster tiles are far more robust than a vector style (no sprite/glyph fetches
+// to fail), so the actual map shows reliably. A Mapbox token upgrades to Mapbox.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CARTO_RASTER_STYLE: any = {
+  version: 8,
+  sources: {
+    carto: {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap © CARTO',
+    },
+  },
+  layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
+}
 
 export function FleetMap(props: Props) {
   const [failed, setFailed] = useState(false)
@@ -57,13 +75,13 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
 
         const style = token
           ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12?access_token=${token}`
-          : CARTO_POSITRON
+          : CARTO_RASTER_STYLE
 
         const map = new maplibregl.Map({
           container: containerRef.current,
           style,
           center: MAP_CENTER,
-          zoom: 11.2,
+          zoom: MAP_ZOOM,
           attributionControl: false,
           // Rewrite Mapbox protocol URLs so Mapbox styles work through MapLibre.
           transformRequest: token
@@ -89,6 +107,13 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
             paint: { 'line-color': '#4f46e5', 'line-width': 2.5, 'line-opacity': 0.4, 'line-dasharray': [2, 2] },
           })
           syncMarkers()
+          // Frame the whole fleet (spread across counties) on first load.
+          if (!fill) return
+          const pts = vehicles.map((v) => v.position)
+          if (pts.length > 1) {
+            const b = pts.reduce((acc, p) => acc.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]))
+            map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 320, right: 340 }, maxZoom: 11, duration: 0 })
+          }
         })
         map.on('error', (e: unknown) => {
           // Style/tiles failed to load (e.g. offline) — drop to the SVG fallback.
@@ -119,13 +144,14 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
       if (!marker) {
         const el = document.createElement('div')
         el.className = 'veh-marker'
+        el.innerHTML = markerSVG(v.type) // car / truck / van / bike silhouette
         el.addEventListener('click', () => onSelectRef.current?.(v.id))
         marker = new maplibregl.Marker({ element: el }).setLngLat(v.position).addTo(map)
         markersRef.current[v.id] = marker
       }
       marker.setLngLat(v.position)
       const el = marker.getElement() as HTMLDivElement
-      el.style.background = STATUS_COLOR[v.status]
+      el.style.color = STATUS_COLOR[v.status]
       el.classList.toggle('selected', v.id === selectedId)
       el.classList.toggle('moving', v.status === 'moving')
     })
@@ -169,7 +195,7 @@ function routeGeoJSON(vehicles: Vehicle[]): any {
 // SVG fallback — only used if the map library/tiles cannot load (offline).
 // ---------------------------------------------------------------------------
 function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect }: Props) {
-  const bounds = useMemo(() => ({ minLng: 36.68, maxLng: 36.96, minLat: -1.36, maxLat: -1.2 }), [])
+  const bounds = useMemo(() => ({ minLng: 36.35, maxLng: 37.35, minLat: -1.95, maxLat: -0.62 }), [])
   const W = 1000
   const H = 560
   const project = (c: LngLat): [number, number] => {
@@ -199,10 +225,13 @@ function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect }: Props) {
         {vehicles.map((v) => {
           const [x, y] = project(v.position)
           const selected = v.id === selectedId
+          const c = STATUS_COLOR[v.status]
           return (
             <g key={v.id} transform={`translate(${x} ${y})`} style={{ cursor: 'pointer' }} onClick={() => onSelect?.(v.id)}>
-              {v.status === 'moving' && <circle r={12} fill={STATUS_COLOR[v.status]} opacity={0.16} />}
-              <circle r={selected ? 9 : 6.5} fill={STATUS_COLOR[v.status]} stroke={selected ? '#4f46e5' : '#fff'} strokeWidth={selected ? 3 : 2} />
+              {v.status === 'moving' && <circle r={16} fill={c} opacity={0.14} />}
+              <circle r={selected ? 14 : 12} fill="#fff" stroke={selected ? '#4f46e5' : c} strokeWidth={selected ? 3 : 2} />
+              <g transform="translate(-8.5 -8.5) scale(0.85)" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"
+                dangerouslySetInnerHTML={{ __html: VEHICLE_SHAPES[v.type] }} />
             </g>
           )
         })}

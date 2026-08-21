@@ -1268,21 +1268,25 @@ input[type='range']::-moz-range-thumb {
 /* Sidebar spacer replacing the removed sim box */
 .nav-spacer { flex: 1; }
 
-/* MapLibre vehicle markers */
+/* MapLibre vehicle markers — a white chip holding the vehicle-shape glyph */
 .veh-marker {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(20, 24, 34, 0.4);
-  cursor: pointer; transition: transform 0.2s;
+  position: relative;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #fff; border: 2px solid currentColor;
+  display: grid; place-items: center;
+  box-shadow: 0 2px 6px rgba(20, 24, 34, 0.28);
+  cursor: pointer; transition: transform 0.18s;
 }
-.veh-marker.selected { transform: scale(1.55); border-color: #4f46e5; z-index: 3; }
+.veh-marker svg { display: block; }
+.veh-marker.selected { transform: scale(1.28); z-index: 4; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35), 0 3px 8px rgba(20, 24, 34, 0.3); }
 .veh-marker.moving::after {
-  content: ''; position: absolute; inset: -5px; border-radius: 50%;
-  border: 2px solid currentColor; opacity: 0; color: inherit;
-  animation: marker-pulse 2s ease-out infinite;
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  border: 2px solid currentColor; opacity: 0;
+  animation: marker-pulse 2.2s ease-out infinite;
 }
 @keyframes marker-pulse {
-  0% { transform: scale(0.6); opacity: 0.5; }
-  100% { transform: scale(1.8); opacity: 0; }
+  0% { transform: scale(0.7); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
 }
 .maplibregl-ctrl-group { border-radius: 8px !important; box-shadow: var(--shadow-sm) !important; }
 

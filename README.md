@@ -14,7 +14,8 @@ fleet moving in real time.
 - **Real-time map** — vehicles move along routes with animated markers, status colours, and per-vehicle detail. Renders on a built-in demo map by default; drop in a **Mapbox** token for real street/satellite tiles.
 - **Fleet management** — full CRUD for vehicles: add, edit (name, plate, type, fuel, assigned driver), and delete, with confirmation.
 - **Driver management** — full CRUD for the driver roster: add, edit (name, WhatsApp number, rating), delete, and one-click messaging.
-- **WhatsApp dispatch** — a WhatsApp-style two-way inbox for every driver, with delivery/read ticks and an **auto-reply bot** that answers driver keywords (`STATUS`, `ETA`, `FUEL`, `ARRIVED`, `MENU`).
+- **WhatsApp dispatch** — a WhatsApp-style two-way inbox for every driver, with delivery/read ticks, seeded multi-turn dispatch history, and an **auto-reply bot**: either **Groq** answering with full conversation memory, or a built-in keyword bot (`STATUS`, `ETA`, `FUEL`, `ARRIVED`, `MENU`) when no API key is set.
+- **Installable (PWA)** — add it to a phone home screen; the app shell works offline and the whole UI is laid out for mobile.
 - **Trip management** — create trips, **dispatch** them to a vehicle (the driver is auto-notified over WhatsApp), and track progress/ETA to completion.
 - **Live simulation** — vehicles drive their routes, fuel drains, ETAs update, and drivers send messages and trigger alerts. Pause/resume any time.
 
@@ -72,6 +73,72 @@ unauthorized, `403` URL-restricted, or blocked network). The same panel says
 whether the active token came from `VITE_MAPBOX_TOKEN` or from one saved in this
 browser — a token saved in Settings **overrides** the deployed one, which is a
 common reason a correct Vercel token appears to be ignored.
+
+### Groq AI replies
+
+Optional. With no key the auto-reply is the deterministic keyword bot
+(`STATUS`, `ETA`, `FUEL`, `ARRIVED`, `MENU`). Set a key and each inbound driver
+message is answered by an LLM on **Groq** instead, with the conversation's
+memory object as context.
+
+Groq's free tier needs no card — get a key at
+[console.groq.com](https://console.groq.com) (they look like `gsk_…`).
+
+- **Settings → Groq AI replies** — paste the key (stored in `localStorage`),
+  pick a model, and press **Test connection**.
+- **Build-time** — set `VITE_GROQ_API_KEY` (and optionally `VITE_GROQ_MODEL`,
+  default `llama-3.3-70b-versatile`; `llama-3.1-8b-instant` is faster).
+
+The API is OpenAI-compatible (`https://api.groq.com/openai/v1/chat/completions`),
+so any other provider with that shape works by pointing `VITE_GROQ_PROXY_URL` at
+it.
+
+**Conversation memory** (`src/lib/memory.ts`) is what makes replies context-aware.
+Before every request the driver's thread is condensed into one object:
+
+| Section | Contents |
+| --- | --- |
+| Driver | name, WhatsApp number, duty status, rating |
+| Vehicle | plate, type, status, speed, nearest town, fuel (or "no sensor fitted"), odometer |
+| Trip | reference, origin → destination, cargo, distance, % complete, ETA |
+| Alerts | open alerts raised against that vehicle |
+| Remembered | durable facts extracted from earlier messages (a reported puncture, a checkpoint stop, a leave request) — these outlive the transcript window |
+| Transcript | the last 14 messages |
+
+That object is rendered into the system prompt; the model never reads the store
+directly. Open any thread's **Context** button to see the exact text being sent.
+Facts persist under `fleetpulse.memory.v1` and can be wiped from Settings.
+
+Every failure path falls back to the keyword bot so a driver is never left
+unanswered — a rejected key, an unknown model id, a free-tier rate limit or a CORS block all log
+the reason (visible in the Context panel) and hand over to the rules bot. Trip
+side effects stay deterministic: "arrived" closes the trip whichever brain wrote
+the reply.
+
+**Keeping the key off the client.** `VITE_GROQ_API_KEY` is inlined into the
+bundle and readable by any visitor — fine for a throwaway free-tier key you can
+rotate, not for anything else. Set `VITE_GROQ_PROXY_URL` to your own OpenAI-compatible endpoint
+instead: requests then go to `{proxy}/chat/completions` with no key in the
+browser. That is also the fix if the browser blocks `api.groq.com` on CORS.
+
+### Install as an app (PWA)
+
+The build ships a web manifest, maskable icons and a small hand-written service
+worker (`public/sw.js`), so the demo installs to a phone home screen and opens
+offline:
+
+- **Android/Chrome** — "Add to Home screen" from the browser menu.
+- **iOS/Safari** — Share → "Add to Home Screen".
+
+Caching is deliberately simple: hashed `/assets/*` bundles are immutable and
+cached first; navigations are network-first with the cached shell as fallback,
+so a redeploy is picked up immediately. Cross-origin requests (map tiles, the
+Groq API) are never intercepted. Bump `CACHE_VERSION` in `public/sw.js` to evict
+old builds.
+
+The UI is laid out for phones throughout — the sidebar becomes a bottom nav, the
+dashboard and settings collapse to one column, and the WhatsApp inbox and thread
+become two screens with a back button rather than two cramped columns.
 
 ### WhatsApp integration
 

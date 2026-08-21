@@ -32,6 +32,7 @@ import {
   Eye,
   Sparkles,
   ChevronDown,
+  ChevronLeft,
   Bike,
   type LucideIcon,
 } from 'lucide-react'
@@ -72,6 +73,7 @@ const ICONS: Record<string, LucideIcon> = {
   eye: Eye,
   sparkles: Sparkles,
   'chevron-down': ChevronDown,
+  chevronLeft: ChevronLeft,
 }
 
 interface Props {

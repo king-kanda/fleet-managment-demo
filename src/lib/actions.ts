@@ -1,6 +1,10 @@
 import { store } from './store'
 import type { Alert, AppState, Driver, Trip, Vehicle, WhatsAppMessage } from './types'
 import { buildRoute, routeLengthKm } from './geo'
+import { ENV_GROQ_API_KEY, GROQ_MODEL } from './env'
+import { groqConfigured, groqReply } from './groq'
+import { buildMemory, rememberFrom } from './memory'
+import { typingStore } from './typing'
 import { MAP_CENTER } from '@/data/seed'
 
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -134,6 +138,27 @@ export function setMapboxToken(token: string) {
   store.update((s) => ({ ...s, settings: { ...s.settings, mapboxToken: token.trim() } }))
 }
 
+export function setGroqApiKey(key: string) {
+  store.update((s) => ({ ...s, settings: { ...s.settings, groqApiKey: key.trim() } }))
+}
+
+export function setGroqModel(model: string) {
+  store.update((s) => ({ ...s, settings: { ...s.settings, groqModel: model.trim() } }))
+}
+
+export function toggleAiReplies() {
+  store.update((s) => ({ ...s, settings: { ...s.settings, aiReplies: !s.settings.aiReplies } }))
+}
+
+/** The Groq key actually in use: one saved in Settings wins over the build-time one. */
+export function activeGroqKey(s: AppState = store.getState()): string {
+  return s.settings.groqApiKey.trim() || ENV_GROQ_API_KEY
+}
+
+export function activeGroqModel(s: AppState = store.getState()): string {
+  return s.settings.groqModel.trim() || GROQ_MODEL
+}
+
 export function resetDemo() {
   store.reset()
 }
@@ -228,7 +253,7 @@ export function createTrip(input: {
  * In a production build this is where the WhatsApp Business Cloud API call
  * would go — see src/lib/whatsapp.ts for the stubbed wiring.
  */
-export function sendMessage(driverId: string, body: string, opts?: { automated?: boolean }): WhatsAppMessage {
+export function sendMessage(driverId: string, body: string, opts?: { automated?: boolean; source?: WhatsAppMessage['source'] }): WhatsAppMessage {
   const msg: WhatsAppMessage = {
     id: uid('msg'),
     driverId,
@@ -237,6 +262,7 @@ export function sendMessage(driverId: string, body: string, opts?: { automated?:
     createdAt: Date.now(),
     status: 'sent',
     automated: opts?.automated,
+    source: opts?.source,
   }
   store.update((s) => ({ ...s, messages: [...s.messages, msg] }))
   // Simulate delivery + read receipts.
@@ -263,11 +289,64 @@ export function receiveMessage(driverId: string, body: string) {
     status: 'read',
   }
   store.update((s) => ({ ...s, messages: [...s.messages, msg] }))
+  // Fold the message into conversation memory BEFORE replying, so the model
+  // sees what was just said and keeps it for later turns.
+  rememberFrom(driverId, body, msg.createdAt)
 
-  if (store.getState().settings.autoReply) {
-    const reply = botReply(store.getState(), driverId, body)
-    if (reply) setTimeout(() => sendMessage(driverId, reply, { automated: true }), 1200)
+  const s = store.getState()
+  if (!s.settings.autoReply) return
+
+  // Side effects stay deterministic and never depend on the model: "ARRIVED"
+  // completes the trip whether the reply text comes from Groq or the rules bot.
+  applyMessageSideEffects(s, driverId, body)
+
+  const key = activeGroqKey()
+  if (s.settings.aiReplies && groqConfigured(key)) {
+    void replyWithGroq(driverId, body, key, activeGroqModel())
+    return
   }
+  const reply = botReply(store.getState(), driverId, body)
+  if (reply) setTimeout(() => sendMessage(driverId, reply, { automated: true, source: 'rules' }), 1200)
+}
+
+/**
+ * Generate the reply with Groq, handing it the driver's ConversationMemory as
+ * context. Any failure falls back to the keyword bot so a driver is never left
+ * unanswered — the reason is logged and shown in the Memory panel.
+ */
+let lastGroqError = ''
+export function getLastGroqError(): string {
+  return lastGroqError
+}
+
+async function replyWithGroq(driverId: string, body: string, key: string, model: string) {
+  const memory = buildMemory(store.getState(), driverId)
+  if (!memory) return
+  typingStore.start(driverId)
+  try {
+    const res = await groqReply(memory, body, key, { model })
+    if (res.ok && res.reply) {
+      lastGroqError = ''
+      sendMessage(driverId, res.reply, { automated: true, source: 'groq' })
+      return
+    }
+    lastGroqError = res.error ?? 'Unknown error'
+    // eslint-disable-next-line no-console
+    console.warn('[Groq] falling back to the keyword bot:', lastGroqError)
+    const fallback = botReply(store.getState(), driverId, body)
+    if (fallback) sendMessage(driverId, fallback, { automated: true, source: 'rules' })
+  } finally {
+    typingStore.stop(driverId)
+  }
+}
+
+/** Trip/state changes a driver message triggers, independent of the reply text. */
+function applyMessageSideEffects(s: AppState, driverId: string, body: string) {
+  const text = body.trim().toLowerCase()
+  if (!/\b(arrived|delivered|offloaded|trip done|completed)\b/.test(text)) return
+  const driver = s.drivers.find((d) => d.id === driverId)
+  const vehicle = s.vehicles.find((v) => v.id === driver?.vehicleId)
+  if (vehicle?.activeTripId) completeTrip(vehicle.activeTripId)
 }
 
 /**
@@ -297,10 +376,11 @@ export function botReply(s: AppState, driverId: string, body: string): string | 
     return `${vehicle.name} fuel level is ${vehicle.fuelPct}%.`
   }
   if (text.includes('arrived') || text.includes('done') || text.includes('complete')) {
-    if (trip) {
-      completeTrip(trip.id)
-      return `Trip ${trip.reference} marked as completed. Great work! 🎉`
-    }
+    // The trip itself is closed by applyMessageSideEffects, which runs for both
+    // the rules bot and Groq — this only writes the acknowledgement.
+    const justClosed = s.trips.find((t) => t.driverId === driverId && t.status === 'completed')
+    if (trip) return `Trip ${trip.reference} marked as completed. Great work! 🎉`
+    if (justClosed) return `Trip ${justClosed.reference} marked as completed. Great work! 🎉`
     return 'No active trip to complete.'
   }
   if (text.includes('break') || text.includes('rest')) {
@@ -310,9 +390,15 @@ export function botReply(s: AppState, driverId: string, body: string): string | 
 }
 
 export function completeTrip(tripId: string) {
+  let alreadyDone = false
   store.update((s) => {
     const trip = s.trips.find((t) => t.id === tripId)
     if (!trip) return s
+    // Idempotent: a driver can say "arrived" twice without closing it twice.
+    if (trip.status === 'completed') {
+      alreadyDone = true
+      return s
+    }
     const trips = s.trips.map((t) => (t.id === tripId ? { ...t, status: 'completed' as const, progress: 1 } : t))
     const vehicles = s.vehicles.map((v) =>
       v.id === trip.vehicleId
@@ -324,6 +410,8 @@ export function completeTrip(tripId: string) {
     )
     return { ...s, trips, vehicles, drivers }
   })
+  // Only announce a trip this call actually closed.
+  if (alreadyDone) return
   const s = store.getState()
   const trip = s.trips.find((t) => t.id === tripId)
   if (trip) pushAlert({ level: 'info', title: 'Trip completed', detail: `${trip.reference} delivered to ${trip.destination}.`, vehicleId: trip.vehicleId })

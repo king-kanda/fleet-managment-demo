@@ -4,8 +4,10 @@ import { Icon } from '@/components/Icon'
 import { Switch } from '@/components/ui/Switch'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
-import { ENV_MAPBOX_TOKEN, normalizeMapboxToken, pingMapboxToken } from '@/lib/env'
-import { resetDemo, setMapboxToken, toggleAutoReply, toggleSimulation } from '@/lib/actions'
+import { ENV_GROQ_API_KEY, ENV_MAPBOX_TOKEN, GROQ_API_URL, GROQ_MODEL, GROQ_USES_PROXY, normalizeGroqKey, normalizeMapboxToken, pingMapboxToken } from '@/lib/env'
+import { resetDemo, setGroqApiKey, setGroqModel, setMapboxToken, toggleAiReplies, toggleAutoReply, toggleSimulation } from '@/lib/actions'
+import { groqReply } from '@/lib/groq'
+import { clearMemory } from '@/lib/memory'
 
 export function Settings() {
   const state = useStore()
@@ -27,6 +29,48 @@ export function Settings() {
   const envActive = !savedToken && !!ENV_MAPBOX_TOKEN
   const liveTiles = !!activeToken
 
+  // --- Groq ---------------------------------------------------------------
+  const [groqKey, setGroqKey] = useState(state.settings.groqApiKey)
+  const [groqModelDraft, setGroqModelDraft] = useState(state.settings.groqModel)
+  const [groqCheck, setGroqCheck] = useState<{ ok: boolean; message: string } | null>(null)
+  const [groqChecking, setGroqChecking] = useState(false)
+
+  const savedGroqKey = normalizeGroqKey(state.settings.groqApiKey)
+  const activeGroq = savedGroqKey || ENV_GROQ_API_KEY
+  const groqReady = !!activeGroq || GROQ_USES_PROXY
+  const groqFromEnv = !savedGroqKey && !!ENV_GROQ_API_KEY
+
+  const saveGroq = () => {
+    setGroqApiKey(groqKey)
+    setGroqModel(groqModelDraft)
+    toast({
+      title: groqKey.trim() ? 'Groq API key saved' : 'Groq API key cleared',
+      description: groqKey.trim() ? 'AI replies will use this key' : 'Falling back to the keyword bot',
+      variant: 'success',
+    })
+  }
+
+  const testGroq = async () => {
+    setGroqChecking(true)
+    setGroqCheck(null)
+    const key = groqKey.trim() || state.settings.groqApiKey.trim() || ENV_GROQ_API_KEY
+    const model = groqModelDraft.trim() || state.settings.groqModel.trim() || GROQ_MODEL
+    const res = await groqReply(
+      {
+        driverId: 'test', driverName: 'Test', profile: [], vehicle: [], trip: [], alerts: [], facts: [], transcript: [],
+        prompt: 'This is a connectivity test. No driver context is attached.',
+      },
+      'Reply with the single word: connected.',
+      key,
+      { model },
+    )
+    setGroqCheck({
+      ok: res.ok,
+      message: res.ok ? `Connected — ${model} replied "${res.reply?.slice(0, 60)}"` : (res.error ?? 'Unknown error'),
+    })
+    setGroqChecking(false)
+  }
+
   const test = async () => {
     setChecking(true)
     setCheck(null)
@@ -45,7 +89,7 @@ export function Settings() {
         </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+      <div className="settings-grid">
         <div className="card">
           <div className="card-head"><h3>Mapbox Integration</h3></div>
           <p className="meta" style={{ marginTop: 0, lineHeight: 1.6 }}>
@@ -58,7 +102,7 @@ export function Settings() {
             <label>Mapbox access token</label>
             <input value={token} onChange={(e) => setToken(e.target.value)} placeholder={envActive ? 'Using VITE_MAPBOX_TOKEN from env' : 'pk.eyJ1Ijoi…'} />
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="btn-row">
             <button className="btn primary" onClick={save}><Icon name="check" size={14} /> Save token</button>
             <button className="btn ghost" onClick={test} disabled={checking}>{checking ? 'Testing…' : 'Test token'}</button>
             {state.settings.mapboxToken && <button className="btn ghost" onClick={() => { setToken(''); setMapboxToken(''); setCheck(null) }}>Clear</button>}
@@ -101,6 +145,70 @@ export function Settings() {
               <div className="meta">Automatically respond to driver keywords</div>
             </div>
             <Switch checked={state.settings.autoReply} onCheckedChange={toggleAutoReply} />
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-head"><h3>Groq AI replies</h3></div>
+          <p className="meta" style={{ marginTop: 0, lineHeight: 1.6 }}>
+            When enabled, driver messages are answered by an LLM on <strong>Groq</strong> (free tier —
+            get a key at <span style={{ color: 'var(--brand)', fontWeight: 550 }}>console.groq.com</span>)
+            instead of the keyword bot.
+            Each conversation is condensed into a memory object — driver profile, vehicle telemetry, active
+            trip, open alerts, remembered facts and the recent transcript — and that is what the model is
+            given as context. Open any thread's <strong>Context</strong> panel to see exactly what is sent.
+          </p>
+          <div className="field">
+            <label>Groq API key</label>
+            <input
+              type="password"
+              value={groqKey}
+              onChange={(e) => setGroqKey(e.target.value)}
+              placeholder={groqFromEnv ? 'Using VITE_GROQ_API_KEY from env' : 'gsk_…'}
+              autoComplete="off"
+            />
+          </div>
+          <div className="field">
+            <label>Model</label>
+            <input value={groqModelDraft} onChange={(e) => setGroqModelDraft(e.target.value)} placeholder={GROQ_MODEL} />
+          </div>
+          <div className="btn-row">
+            <button className="btn primary" onClick={saveGroq}><Icon name="check" size={14} /> Save</button>
+            <button className="btn ghost" onClick={testGroq} disabled={groqChecking}>{groqChecking ? 'Testing…' : 'Test connection'}</button>
+            {state.settings.groqApiKey && <button className="btn ghost" onClick={() => { setGroqKey(''); setGroqApiKey(''); setGroqCheck(null) }}>Clear</button>}
+          </div>
+          {groqCheck && (
+            <div className="status-row" style={{ marginTop: 12, alignItems: 'flex-start', lineHeight: 1.5 }}>
+              <span className={`status-dot ${groqCheck.ok ? 'on' : ''}`} />
+              <span style={{ wordBreak: 'break-word' }}>{groqCheck.message}</span>
+            </div>
+          )}
+          <div className="setting-toggle" style={{ marginTop: 14 }}>
+            <div>
+              <div className="setting-title">Use Groq for replies</div>
+              <div className="meta">Off = deterministic keyword bot only</div>
+            </div>
+            <Switch checked={state.settings.aiReplies} onCheckedChange={toggleAiReplies} />
+          </div>
+          <div className="status-row" style={{ marginTop: 12 }}>
+            <span className={`status-dot ${groqReady && state.settings.aiReplies ? 'on' : ''}`} />
+            {!groqReady
+              ? 'No key configured — replies come from the keyword bot'
+              : state.settings.aiReplies
+                ? <>AI replies active via {GROQ_USES_PROXY ? 'your proxy' : 'api.groq.com'}{groqFromEnv ? ' (key from VITE_GROQ_API_KEY)' : ''}</>
+                : 'Key configured, but AI replies are switched off'}
+          </div>
+          <div className="meta" style={{ marginTop: 8, lineHeight: 1.5 }}>
+            {GROQ_USES_PROXY
+              ? <>Requests go to <code>{GROQ_API_URL}</code>.</>
+              : <>A key entered here or in <code>VITE_GROQ_API_KEY</code> is visible to anyone who opens this
+                site. Use a throwaway free-tier key you can rotate, or set <code>VITE_GROQ_PROXY_URL</code> to
+                a backend that holds the key server-side.</>}
+          </div>
+          <div className="btn-row" style={{ marginTop: 12 }}>
+            <button className="btn ghost" onClick={() => { clearMemory(); toast({ title: 'Conversation memory cleared', description: 'Remembered facts removed for all drivers', variant: 'success' }) }}>
+              Clear conversation memory
+            </button>
           </div>
         </div>
 

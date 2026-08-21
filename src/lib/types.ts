@@ -80,6 +80,9 @@ export interface WhatsAppMessage {
   status: 'sent' | 'delivered' | 'read'
   // Marks messages produced by the automated dispatch bot vs a human dispatcher.
   automated?: boolean
+  // Which brain wrote an automated message: the Groq model, or the built-in
+  // keyword bot it falls back to.
+  source?: 'groq' | 'rules'
 }
 
 export interface AppState {
@@ -92,5 +95,11 @@ export interface AppState {
     mapboxToken: string
     simulationRunning: boolean
     autoReply: boolean
+    /** Groq API key entered in Settings; falls back to VITE_GROQ_API_KEY. */
+    groqApiKey: string
+    /** Model id override; falls back to VITE_GROQ_MODEL. */
+    groqModel: string
+    /** Use Groq for auto-replies (off = deterministic keyword bot only). */
+    aiReplies: boolean
   }
 }

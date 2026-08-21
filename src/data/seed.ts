@@ -1,5 +1,6 @@
 import type { AppState, Driver, LngLat, Trip, Vehicle } from '@/lib/types'
 import { buildRoute, routeLengthKm } from '@/lib/geo'
+import { buildSeedConversations } from './conversations'
 
 // Demo fleet operates across several counties in south-central Kenya. The map
 // centre sits between Nairobi and Kiambu so the whole spread is visible.
@@ -230,14 +231,16 @@ export function buildSeedState(): AppState {
       { id: 'alert-seed-4', level: 'info', title: 'Trip started', detail: 'Truck 01 departed for its destination.', vehicleId: 'veh-1', createdAt: Date.now() - 1_200_000, read: true },
       { id: 'alert-seed-5', level: 'info', title: 'Maintenance due', detail: 'Bike 09 is due for a 10,000 km service in 3 days.', vehicleId: 'veh-99', createdAt: Date.now() - 5_400_000, read: true },
     ],
-    messages: [
-      { id: 'msg-seed-1', driverId: 'drv-1', direction: 'inbound', body: 'Heavy traffic on Mombasa Road, running about 10 min late.', createdAt: Date.now() - 900_000, status: 'read' },
-      { id: 'msg-seed-2', driverId: 'drv-1', direction: 'outbound', body: 'Noted, thanks for the update. Drive safe.', createdAt: Date.now() - 850_000, status: 'read' },
-    ],
+    // Multi-turn dispatch threads across the first dozen drivers — real history
+    // for the inbox, and real context for the AI auto-reply to read back.
+    messages: buildSeedConversations(drivers, vehicles, trips),
     settings: {
       mapboxToken: '',
       simulationRunning: true,
       autoReply: true,
+      groqApiKey: '',
+      groqModel: '',
+      aiReplies: true,
     },
   }
 }

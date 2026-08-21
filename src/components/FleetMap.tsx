@@ -19,25 +19,26 @@ const STATUS_COLOR: Record<Vehicle['status'], string> = {
   maintenance: '#7c5cf0',
 }
 
-// Free, no-token RASTER basemap (CARTO Voyager) — real streets and town labels.
-// Raster tiles are far more robust than a vector style (no sprite/glyph fetches
-// to fail), so the actual map shows reliably. A Mapbox token upgrades to Mapbox.
+// Free, no-token RASTER basemap. OpenStreetMap's standard tiles are the most
+// reliable keyless source — CORS-enabled and battle-tested — so the real map
+// (streets + town names) renders in production. A Mapbox token upgrades to it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CARTO_RASTER_STYLE: any = {
+const OSM_RASTER_STYLE: any = {
   version: 8,
   sources: {
-    carto: {
+    osm: {
       type: 'raster',
       tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
       ],
       tileSize: 256,
-      attribution: '© OpenStreetMap © CARTO',
+      maxzoom: 19,
+      attribution: '© OpenStreetMap contributors',
     },
   },
-  layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 }
 
 export function FleetMap(props: Props) {
@@ -59,6 +60,7 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markersRef = useRef<Record<string, any>>({})
   const loadedRef = useRef(false)
+  const failTimerRef = useRef<number | null>(null)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
 
@@ -75,7 +77,7 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
 
         const style = token
           ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12?access_token=${token}`
-          : CARTO_RASTER_STYLE
+          : OSM_RASTER_STYLE
 
         const map = new maplibregl.Map({
           container: containerRef.current,
@@ -97,8 +99,17 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
         })
         mapRef.current = map
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+
+        // Only fall back to the offline SVG if the map never loads at all (e.g.
+        // the tile host is unreachable). Individual tile errors are tolerated —
+        // they must NOT tear down a working map.
+        failTimerRef.current = window.setTimeout(() => {
+          if (!loadedRef.current) onFail()
+        }, 9000)
+
         map.on('load', () => {
           loadedRef.current = true
+          if (failTimerRef.current) window.clearTimeout(failTimerRef.current)
           map.addSource('routes', { type: 'geojson', data: routeGeoJSON(vehicles) })
           map.addLayer({
             id: 'routes',
@@ -115,10 +126,9 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
             map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 320, right: 340 }, maxZoom: 11, duration: 0 })
           }
         })
-        map.on('error', (e: unknown) => {
-          // Style/tiles failed to load (e.g. offline) — drop to the SVG fallback.
-          if (!loadedRef.current) onFail()
-          void e
+        // Log tile/style errors for diagnostics but never tear down the map.
+        map.on('error', (e: { error?: { message?: string } }) => {
+          if (e?.error?.message) console.warn('[map]', e.error.message)
         })
       } catch {
         onFail()
@@ -126,6 +136,7 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
     })()
     return () => {
       cancelled = true
+      if (failTimerRef.current) window.clearTimeout(failTimerRef.current)
       mapRef.current?.remove()
       mapRef.current = null
       markersRef.current = {}

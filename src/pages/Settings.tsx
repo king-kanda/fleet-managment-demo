@@ -4,9 +4,9 @@ import { Icon } from '@/components/Icon'
 import { Switch } from '@/components/ui/Switch'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
-import { ENV_GROK_API_KEY, ENV_MAPBOX_TOKEN, GROK_API_URL, GROK_MODEL, GROK_USES_PROXY, normalizeGrokKey, normalizeMapboxToken, pingMapboxToken } from '@/lib/env'
-import { resetDemo, setGrokApiKey, setGrokModel, setMapboxToken, toggleAiReplies, toggleAutoReply, toggleSimulation } from '@/lib/actions'
-import { grokReply } from '@/lib/grok'
+import { ENV_GROQ_API_KEY, ENV_MAPBOX_TOKEN, GROQ_API_URL, GROQ_MODEL, GROQ_USES_PROXY, normalizeGroqKey, normalizeMapboxToken, pingMapboxToken } from '@/lib/env'
+import { resetDemo, setGroqApiKey, setGroqModel, setMapboxToken, toggleAiReplies, toggleAutoReply, toggleSimulation } from '@/lib/actions'
+import { groqReply } from '@/lib/groq'
 import { clearMemory } from '@/lib/memory'
 
 export function Settings() {
@@ -29,33 +29,33 @@ export function Settings() {
   const envActive = !savedToken && !!ENV_MAPBOX_TOKEN
   const liveTiles = !!activeToken
 
-  // --- Grok ---------------------------------------------------------------
-  const [grokKey, setGrokKey] = useState(state.settings.grokApiKey)
-  const [grokModelDraft, setGrokModelDraft] = useState(state.settings.grokModel)
-  const [grokCheck, setGrokCheck] = useState<{ ok: boolean; message: string } | null>(null)
-  const [grokChecking, setGrokChecking] = useState(false)
+  // --- Groq ---------------------------------------------------------------
+  const [groqKey, setGroqKey] = useState(state.settings.groqApiKey)
+  const [groqModelDraft, setGroqModelDraft] = useState(state.settings.groqModel)
+  const [groqCheck, setGroqCheck] = useState<{ ok: boolean; message: string } | null>(null)
+  const [groqChecking, setGroqChecking] = useState(false)
 
-  const savedGrokKey = normalizeGrokKey(state.settings.grokApiKey)
-  const activeGrok = savedGrokKey || ENV_GROK_API_KEY
-  const grokReady = !!activeGrok || GROK_USES_PROXY
-  const grokFromEnv = !savedGrokKey && !!ENV_GROK_API_KEY
+  const savedGroqKey = normalizeGroqKey(state.settings.groqApiKey)
+  const activeGroq = savedGroqKey || ENV_GROQ_API_KEY
+  const groqReady = !!activeGroq || GROQ_USES_PROXY
+  const groqFromEnv = !savedGroqKey && !!ENV_GROQ_API_KEY
 
-  const saveGrok = () => {
-    setGrokApiKey(grokKey)
-    setGrokModel(grokModelDraft)
+  const saveGroq = () => {
+    setGroqApiKey(groqKey)
+    setGroqModel(groqModelDraft)
     toast({
-      title: grokKey.trim() ? 'Grok API key saved' : 'Grok API key cleared',
-      description: grokKey.trim() ? 'AI replies will use this key' : 'Falling back to the keyword bot',
+      title: groqKey.trim() ? 'Groq API key saved' : 'Groq API key cleared',
+      description: groqKey.trim() ? 'AI replies will use this key' : 'Falling back to the keyword bot',
       variant: 'success',
     })
   }
 
-  const testGrok = async () => {
-    setGrokChecking(true)
-    setGrokCheck(null)
-    const key = grokKey.trim() || state.settings.grokApiKey.trim() || ENV_GROK_API_KEY
-    const model = grokModelDraft.trim() || state.settings.grokModel.trim() || GROK_MODEL
-    const res = await grokReply(
+  const testGroq = async () => {
+    setGroqChecking(true)
+    setGroqCheck(null)
+    const key = groqKey.trim() || state.settings.groqApiKey.trim() || ENV_GROQ_API_KEY
+    const model = groqModelDraft.trim() || state.settings.groqModel.trim() || GROQ_MODEL
+    const res = await groqReply(
       {
         driverId: 'test', driverName: 'Test', profile: [], vehicle: [], trip: [], alerts: [], facts: [], transcript: [],
         prompt: 'This is a connectivity test. No driver context is attached.',
@@ -64,11 +64,11 @@ export function Settings() {
       key,
       { model },
     )
-    setGrokCheck({
+    setGroqCheck({
       ok: res.ok,
       message: res.ok ? `Connected — ${model} replied "${res.reply?.slice(0, 60)}"` : (res.error ?? 'Unknown error'),
     })
-    setGrokChecking(false)
+    setGroqChecking(false)
   }
 
   const test = async () => {
@@ -149,59 +149,61 @@ export function Settings() {
         </div>
 
         <div className="card">
-          <div className="card-head"><h3>Grok AI replies</h3></div>
+          <div className="card-head"><h3>Groq AI replies</h3></div>
           <p className="meta" style={{ marginTop: 0, lineHeight: 1.6 }}>
-            When enabled, driver messages are answered by <strong>Grok</strong> instead of the keyword bot.
+            When enabled, driver messages are answered by an LLM on <strong>Groq</strong> (free tier —
+            get a key at <span style={{ color: 'var(--brand)', fontWeight: 550 }}>console.groq.com</span>)
+            instead of the keyword bot.
             Each conversation is condensed into a memory object — driver profile, vehicle telemetry, active
             trip, open alerts, remembered facts and the recent transcript — and that is what the model is
             given as context. Open any thread's <strong>Context</strong> panel to see exactly what is sent.
           </p>
           <div className="field">
-            <label>xAI API key</label>
+            <label>Groq API key</label>
             <input
               type="password"
-              value={grokKey}
-              onChange={(e) => setGrokKey(e.target.value)}
-              placeholder={grokFromEnv ? 'Using VITE_GROK_API_KEY from env' : 'xai-…'}
+              value={groqKey}
+              onChange={(e) => setGroqKey(e.target.value)}
+              placeholder={groqFromEnv ? 'Using VITE_GROQ_API_KEY from env' : 'gsk_…'}
               autoComplete="off"
             />
           </div>
           <div className="field">
             <label>Model</label>
-            <input value={grokModelDraft} onChange={(e) => setGrokModelDraft(e.target.value)} placeholder={GROK_MODEL} />
+            <input value={groqModelDraft} onChange={(e) => setGroqModelDraft(e.target.value)} placeholder={GROQ_MODEL} />
           </div>
           <div className="btn-row">
-            <button className="btn primary" onClick={saveGrok}><Icon name="check" size={14} /> Save</button>
-            <button className="btn ghost" onClick={testGrok} disabled={grokChecking}>{grokChecking ? 'Testing…' : 'Test connection'}</button>
-            {state.settings.grokApiKey && <button className="btn ghost" onClick={() => { setGrokKey(''); setGrokApiKey(''); setGrokCheck(null) }}>Clear</button>}
+            <button className="btn primary" onClick={saveGroq}><Icon name="check" size={14} /> Save</button>
+            <button className="btn ghost" onClick={testGroq} disabled={groqChecking}>{groqChecking ? 'Testing…' : 'Test connection'}</button>
+            {state.settings.groqApiKey && <button className="btn ghost" onClick={() => { setGroqKey(''); setGroqApiKey(''); setGroqCheck(null) }}>Clear</button>}
           </div>
-          {grokCheck && (
+          {groqCheck && (
             <div className="status-row" style={{ marginTop: 12, alignItems: 'flex-start', lineHeight: 1.5 }}>
-              <span className={`status-dot ${grokCheck.ok ? 'on' : ''}`} />
-              <span style={{ wordBreak: 'break-word' }}>{grokCheck.message}</span>
+              <span className={`status-dot ${groqCheck.ok ? 'on' : ''}`} />
+              <span style={{ wordBreak: 'break-word' }}>{groqCheck.message}</span>
             </div>
           )}
           <div className="setting-toggle" style={{ marginTop: 14 }}>
             <div>
-              <div className="setting-title">Use Grok for replies</div>
+              <div className="setting-title">Use Groq for replies</div>
               <div className="meta">Off = deterministic keyword bot only</div>
             </div>
             <Switch checked={state.settings.aiReplies} onCheckedChange={toggleAiReplies} />
           </div>
           <div className="status-row" style={{ marginTop: 12 }}>
-            <span className={`status-dot ${grokReady && state.settings.aiReplies ? 'on' : ''}`} />
-            {!grokReady
+            <span className={`status-dot ${groqReady && state.settings.aiReplies ? 'on' : ''}`} />
+            {!groqReady
               ? 'No key configured — replies come from the keyword bot'
               : state.settings.aiReplies
-                ? <>AI replies active via {GROK_USES_PROXY ? 'your proxy' : 'api.x.ai'}{grokFromEnv ? ' (key from VITE_GROK_API_KEY)' : ''}</>
+                ? <>AI replies active via {GROQ_USES_PROXY ? 'your proxy' : 'api.groq.com'}{groqFromEnv ? ' (key from VITE_GROQ_API_KEY)' : ''}</>
                 : 'Key configured, but AI replies are switched off'}
           </div>
           <div className="meta" style={{ marginTop: 8, lineHeight: 1.5 }}>
-            {GROK_USES_PROXY
-              ? <>Requests go to <code>{GROK_API_URL}</code>.</>
-              : <>A key entered here or in <code>VITE_GROK_API_KEY</code> is visible to anyone who opens this
-                site. Use a spend-capped demo key, or set <code>VITE_GROK_PROXY_URL</code> to a backend that
-                holds the key server-side.</>}
+            {GROQ_USES_PROXY
+              ? <>Requests go to <code>{GROQ_API_URL}</code>.</>
+              : <>A key entered here or in <code>VITE_GROQ_API_KEY</code> is visible to anyone who opens this
+                site. Use a throwaway free-tier key you can rotate, or set <code>VITE_GROQ_PROXY_URL</code> to
+                a backend that holds the key server-side.</>}
           </div>
           <div className="btn-row" style={{ marginTop: 12 }}>
             <button className="btn ghost" onClick={() => { clearMemory(); toast({ title: 'Conversation memory cleared', description: 'Remembered facts removed for all drivers', variant: 'success' }) }}>

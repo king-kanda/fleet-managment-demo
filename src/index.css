@@ -1421,7 +1421,7 @@ input[type='range']::-moz-range-thumb {
 .chart svg { width: 100%; height: auto; }
 
 /* ==========================================================================
-   Batch: Grok replies, conversation memory panel, mobile + PWA layout
+   Batch: Groq replies, conversation memory panel, mobile + PWA layout
    ========================================================================== */
 
 /* Settings: two columns on desktop, one on anything narrow. */

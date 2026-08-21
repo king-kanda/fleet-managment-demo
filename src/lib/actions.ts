@@ -1,8 +1,8 @@
 import { store } from './store'
 import type { Alert, AppState, Driver, Trip, Vehicle, WhatsAppMessage } from './types'
 import { buildRoute, routeLengthKm } from './geo'
-import { ENV_GROK_API_KEY, GROK_MODEL } from './env'
-import { grokConfigured, grokReply } from './grok'
+import { ENV_GROQ_API_KEY, GROQ_MODEL } from './env'
+import { groqConfigured, groqReply } from './groq'
 import { buildMemory, rememberFrom } from './memory'
 import { typingStore } from './typing'
 import { MAP_CENTER } from '@/data/seed'
@@ -138,25 +138,25 @@ export function setMapboxToken(token: string) {
   store.update((s) => ({ ...s, settings: { ...s.settings, mapboxToken: token.trim() } }))
 }
 
-export function setGrokApiKey(key: string) {
-  store.update((s) => ({ ...s, settings: { ...s.settings, grokApiKey: key.trim() } }))
+export function setGroqApiKey(key: string) {
+  store.update((s) => ({ ...s, settings: { ...s.settings, groqApiKey: key.trim() } }))
 }
 
-export function setGrokModel(model: string) {
-  store.update((s) => ({ ...s, settings: { ...s.settings, grokModel: model.trim() } }))
+export function setGroqModel(model: string) {
+  store.update((s) => ({ ...s, settings: { ...s.settings, groqModel: model.trim() } }))
 }
 
 export function toggleAiReplies() {
   store.update((s) => ({ ...s, settings: { ...s.settings, aiReplies: !s.settings.aiReplies } }))
 }
 
-/** The Grok key actually in use: one saved in Settings wins over the build-time one. */
-export function activeGrokKey(s: AppState = store.getState()): string {
-  return s.settings.grokApiKey.trim() || ENV_GROK_API_KEY
+/** The Groq key actually in use: one saved in Settings wins over the build-time one. */
+export function activeGroqKey(s: AppState = store.getState()): string {
+  return s.settings.groqApiKey.trim() || ENV_GROQ_API_KEY
 }
 
-export function activeGrokModel(s: AppState = store.getState()): string {
-  return s.settings.grokModel.trim() || GROK_MODEL
+export function activeGroqModel(s: AppState = store.getState()): string {
+  return s.settings.groqModel.trim() || GROQ_MODEL
 }
 
 export function resetDemo() {
@@ -297,12 +297,12 @@ export function receiveMessage(driverId: string, body: string) {
   if (!s.settings.autoReply) return
 
   // Side effects stay deterministic and never depend on the model: "ARRIVED"
-  // completes the trip whether the reply text comes from Grok or the rules bot.
+  // completes the trip whether the reply text comes from Groq or the rules bot.
   applyMessageSideEffects(s, driverId, body)
 
-  const key = activeGrokKey()
-  if (s.settings.aiReplies && grokConfigured(key)) {
-    void replyWithGrok(driverId, body, key, activeGrokModel())
+  const key = activeGroqKey()
+  if (s.settings.aiReplies && groqConfigured(key)) {
+    void replyWithGroq(driverId, body, key, activeGroqModel())
     return
   }
   const reply = botReply(store.getState(), driverId, body)
@@ -310,29 +310,29 @@ export function receiveMessage(driverId: string, body: string) {
 }
 
 /**
- * Generate the reply with Grok, handing it the driver's ConversationMemory as
+ * Generate the reply with Groq, handing it the driver's ConversationMemory as
  * context. Any failure falls back to the keyword bot so a driver is never left
  * unanswered — the reason is logged and shown in the Memory panel.
  */
-let lastGrokError = ''
-export function getLastGrokError(): string {
-  return lastGrokError
+let lastGroqError = ''
+export function getLastGroqError(): string {
+  return lastGroqError
 }
 
-async function replyWithGrok(driverId: string, body: string, key: string, model: string) {
+async function replyWithGroq(driverId: string, body: string, key: string, model: string) {
   const memory = buildMemory(store.getState(), driverId)
   if (!memory) return
   typingStore.start(driverId)
   try {
-    const res = await grokReply(memory, body, key, { model })
+    const res = await groqReply(memory, body, key, { model })
     if (res.ok && res.reply) {
-      lastGrokError = ''
-      sendMessage(driverId, res.reply, { automated: true, source: 'grok' })
+      lastGroqError = ''
+      sendMessage(driverId, res.reply, { automated: true, source: 'groq' })
       return
     }
-    lastGrokError = res.error ?? 'Unknown error'
+    lastGroqError = res.error ?? 'Unknown error'
     // eslint-disable-next-line no-console
-    console.warn('[Grok] falling back to the keyword bot:', lastGrokError)
+    console.warn('[Groq] falling back to the keyword bot:', lastGroqError)
     const fallback = botReply(store.getState(), driverId, body)
     if (fallback) sendMessage(driverId, fallback, { automated: true, source: 'rules' })
   } finally {
@@ -377,7 +377,7 @@ export function botReply(s: AppState, driverId: string, body: string): string | 
   }
   if (text.includes('arrived') || text.includes('done') || text.includes('complete')) {
     // The trip itself is closed by applyMessageSideEffects, which runs for both
-    // the rules bot and Grok — this only writes the acknowledgement.
+    // the rules bot and Groq — this only writes the acknowledgement.
     const justClosed = s.trips.find((t) => t.driverId === driverId && t.status === 'completed')
     if (trip) return `Trip ${trip.reference} marked as completed. Great work! 🎉`
     if (justClosed) return `Trip ${justClosed.reference} marked as completed. Great work! 🎉`

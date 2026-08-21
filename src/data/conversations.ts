@@ -4,7 +4,7 @@ import type { Driver, Trip, Vehicle, WhatsAppMessage } from '@/lib/types'
  * Seeded WhatsApp conversations.
  *
  * These exist so the demo opens on real dispatch traffic rather than a single
- * placeholder exchange — and so the Grok auto-reply has genuine history to read
+ * placeholder exchange — and so the Groq auto-reply has genuine history to read
  * back. Each scenario is a multi-turn thread with realistic Kenyan road context;
  * the driver's actual vehicle and trip are interpolated at seed time so what the
  * thread says matches what the rest of the app shows.

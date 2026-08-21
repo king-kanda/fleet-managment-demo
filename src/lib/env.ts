@@ -10,29 +10,32 @@
 export const ENV_MAPBOX_TOKEN: string = normalizeMapboxToken(import.meta.env.VITE_MAPBOX_TOKEN)
 
 // ---------------------------------------------------------------------------
-// Grok (xAI) — powers the WhatsApp auto-reply with real conversational context.
+// Groq (GroqCloud) — powers the WhatsApp auto-reply with real conversational
+// context. Free tier, OpenAI-compatible API, keys look like "gsk_…".
 //
 // SECURITY: anything inlined here ships to the browser and is readable by every
 // visitor. That is acceptable for a demo key with a spend cap; for anything real
-// set VITE_GROK_PROXY_URL to your own backend (which holds the key server-side)
-// and leave VITE_GROK_API_KEY unset.
+// set VITE_GROQ_PROXY_URL to your own backend (which holds the key server-side)
+// and leave VITE_GROQ_API_KEY unset.
 // ---------------------------------------------------------------------------
-export const ENV_GROK_API_KEY: string = normalizeGrokKey(import.meta.env.VITE_GROK_API_KEY)
+const GROQ_DEFAULT_URL = 'https://api.groq.com/openai/v1'
 
-/** Default model. Override per-deployment with VITE_GROK_MODEL. */
-export const GROK_MODEL: string = (import.meta.env.VITE_GROK_MODEL ?? '').trim() || 'grok-4.6'
+export const ENV_GROQ_API_KEY: string = normalizeGroqKey(import.meta.env.VITE_GROQ_API_KEY)
+
+/** Default model. Override per-deployment with VITE_GROQ_MODEL. */
+export const GROQ_MODEL: string = (import.meta.env.VITE_GROQ_MODEL ?? '').trim() || 'llama-3.3-70b-versatile'
 
 /**
- * Where chat completions are sent. Defaults to xAI directly; point it at your
- * own proxy (same OpenAI-compatible shape) to keep the key off the client.
+ * Where chat completions are sent. Defaults to GroqCloud directly; point it at
+ * your own proxy (same OpenAI-compatible shape) to keep the key off the client.
  */
-export const GROK_API_URL: string =
-  ((import.meta.env.VITE_GROK_PROXY_URL ?? '') as string).trim().replace(/\/$/, '') || 'https://api.x.ai/v1'
+export const GROQ_API_URL: string =
+  ((import.meta.env.VITE_GROQ_PROXY_URL ?? '') as string).trim().replace(/\/$/, '') || GROQ_DEFAULT_URL
 
 /** True when replies can be generated without a key in the browser (proxy mode). */
-export const GROK_USES_PROXY: boolean = GROK_API_URL !== 'https://api.x.ai/v1'
+export const GROQ_USES_PROXY: boolean = GROQ_API_URL !== GROQ_DEFAULT_URL
 
-export function normalizeGrokKey(raw: unknown): string {
+export function normalizeGroqKey(raw: unknown): string {
   if (typeof raw !== 'string') return ''
   return raw.trim().replace(/^['"]|['"]$/g, '').trim()
 }

@@ -1,7 +1,7 @@
 /**
  * Conversation memory.
  *
- * Grok only sees what we hand it, so every driver conversation is condensed into
+ * Groq only sees what we hand it, so every driver conversation is condensed into
  * a `ConversationMemory` object: who the driver is, what they are driving, the
  * trip they are on, the alerts raised against their vehicle, durable facts
  * gathered from earlier messages, and a rolling window of the transcript. That

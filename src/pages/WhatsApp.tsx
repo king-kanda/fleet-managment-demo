@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { useStore } from '@/hooks/useStore'
 import { Icon } from '@/components/Icon'
 import { Switch } from '@/components/ui/Switch'
-import { activeGrokKey, getLastGrokError, receiveMessage, sendMessage, toggleAutoReply } from '@/lib/actions'
-import { grokConfigured } from '@/lib/grok'
+import { activeGroqKey, getLastGroqError, receiveMessage, sendMessage, toggleAutoReply } from '@/lib/actions'
+import { groqConfigured } from '@/lib/groq'
 import { buildMemory } from '@/lib/memory'
 import { typingStore } from '@/lib/typing'
 import { clockTime, initials } from '@/lib/format'
@@ -46,7 +46,7 @@ export function WhatsApp() {
   const thread = state.messages.filter((m) => m.driverId === activeDriver)
   const driver = state.drivers.find((d) => d.id === activeDriver)
   const isTyping = !!activeDriver && typing.includes(activeDriver)
-  const aiActive = state.settings.autoReply && state.settings.aiReplies && grokConfigured(activeGrokKey(state))
+  const aiActive = state.settings.autoReply && state.settings.aiReplies && groqConfigured(activeGroqKey(state))
 
   const memory = useMemo(
     () => (showContext && activeDriver ? buildMemory(state, activeDriver) : null),
@@ -114,7 +114,7 @@ export function WhatsApp() {
                 <button
                   className={`btn sm ghost wa-context-btn ${showContext ? 'active' : ''}`}
                   onClick={() => setShowContext((v) => !v)}
-                  title="Show the memory object sent to Grok"
+                  title="Show the memory object sent to Groq"
                 >
                   <Icon name="chat" size={14} /> Context
                 </button>
@@ -168,11 +168,11 @@ export function WhatsApp() {
 
 /** Shows exactly what memory is handed to the model for this conversation. */
 function ContextPanel({ prompt, factCount, aiActive }: { prompt: string; factCount: number; aiActive: boolean }) {
-  const error = getLastGrokError()
+  const error = getLastGroqError()
   return (
     <div className="wa-context">
       <div className="wa-context-head">
-        <strong>Memory sent to Grok</strong>
+        <strong>Memory sent to Groq</strong>
         <span className="meta">{factCount} remembered fact{factCount === 1 ? '' : 's'}</span>
       </div>
       {!aiActive && (
@@ -191,7 +191,7 @@ function Bubble({ m }: { m: WhatsAppMessage }) {
   const ticks = m.status === 'read' ? '✓✓' : m.status === 'delivered' ? '✓✓' : '✓'
   return (
     <div className={`bubble ${m.direction}`}>
-      {m.automated && <div className="bot-tag">{m.source === 'grok' ? '✨ Grok reply' : '🤖 Auto dispatch'}</div>}
+      {m.automated && <div className="bot-tag">{m.source === 'groq' ? '✨ Groq reply' : '🤖 Auto dispatch'}</div>}
       {m.body}
       <div className="b-time">
         {clockTime(m.createdAt)}

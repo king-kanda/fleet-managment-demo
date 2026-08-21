@@ -238,8 +238,8 @@ export function buildSeedState(): AppState {
       mapboxToken: '',
       simulationRunning: true,
       autoReply: true,
-      grokApiKey: '',
-      grokModel: '',
+      groqApiKey: '',
+      groqModel: '',
       aiReplies: true,
     },
   }

@@ -3,7 +3,7 @@ import { buildSeedState } from '@/data/seed'
 
 // Bump when the shape of AppState or the seed changes — a stale payload from an
 // older key is discarded rather than migrated (this is a demo, not a product DB).
-const STORAGE_KEY = 'fleetpulse.state.v5'
+const STORAGE_KEY = 'fleetpulse.state.v6'
 
 type Listener = () => void
 

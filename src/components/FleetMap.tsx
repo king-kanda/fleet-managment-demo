@@ -60,7 +60,6 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markersRef = useRef<Record<string, any>>({})
   const loadedRef = useRef(false)
-  const failTimerRef = useRef<number | null>(null)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
 
@@ -96,16 +95,8 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
         mapRef.current = map
         map.addControl(new gl.NavigationControl({ showCompass: false }), 'top-right')
 
-        // Only fall back to the offline SVG if the map never loads at all (e.g.
-        // the tile host is unreachable). Individual tile errors are tolerated —
-        // they must NOT tear down a working map.
-        failTimerRef.current = window.setTimeout(() => {
-          if (!loadedRef.current) onFail()
-        }, 9000)
-
         map.on('load', () => {
           loadedRef.current = true
-          if (failTimerRef.current) window.clearTimeout(failTimerRef.current)
           map.addSource('routes', { type: 'geojson', data: routeGeoJSON(vehicles) })
           map.addLayer({
             id: 'routes',
@@ -122,17 +113,14 @@ function GLMap({ vehicles, token, height = 460, fill, selectedId, onSelect, onFa
             map.fitBounds(b, { padding: { top: 90, bottom: 60, left: 320, right: 340 }, maxZoom: 11, duration: 0 })
           }
         })
-        // Log tile/style errors for diagnostics but never tear down the map.
-        map.on('error', (e: { error?: { message?: string } }) => {
-          if (e?.error?.message) console.warn('[map]', e.error.message)
-        })
+        // A working map is never torn down for tile/style errors. The offline
+        // SVG is only reached if the map library itself fails to load (catch).
       } catch {
         onFail()
       }
     })()
     return () => {
       cancelled = true
-      if (failTimerRef.current) window.clearTimeout(failTimerRef.current)
       mapRef.current?.remove()
       mapRef.current = null
       markersRef.current = {}
@@ -237,7 +225,7 @@ function SvgMap({ vehicles, height = 460, fill, selectedId, onSelect }: Props) {
             <g key={v.id} transform={`translate(${x} ${y})`} style={{ cursor: 'pointer' }} onClick={() => onSelect?.(v.id)}>
               {v.status === 'moving' && <circle r={16} fill={c} opacity={0.14} />}
               <circle r={selected ? 14 : 12} fill="#fff" stroke={selected ? '#4f46e5' : c} strokeWidth={selected ? 3 : 2} />
-              <g transform="translate(-8.5 -8.5) scale(0.85)" fill="none" stroke={c} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"
+              <g transform="translate(-9 -9) scale(0.75)" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
                 dangerouslySetInnerHTML={{ __html: VEHICLE_SHAPES[v.type] }} />
             </g>
           )
